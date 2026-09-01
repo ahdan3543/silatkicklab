@@ -5,8 +5,6 @@ import {
   Calendar,
   User,
   Shield,
-  Clock,
-  CheckCircle,
   Zap,
   Target as TargetIcon,
   CheckCircle2,
@@ -18,7 +16,6 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { Table } from '../components/ui/Table';
 import { LoadingState } from '../components/ui/LoadingState';
 import { VideoCard } from '../features/video/VideoCard';
 import { UploadConfirmModal } from '../features/video/UploadConfirmModal';
@@ -71,7 +68,7 @@ export const SessionDetailPage: React.FC = () => {
         const accList: AccuracyAnalysisResult[] = [];
 
         for (const att of sessionData.attempts) {
-          if (att.video) {
+          if (att.video && att.video.id) {
             const [spd, acc] = await Promise.all([
               speedStorageService.getSpeedResultByVideoId(att.video.id),
               accuracyStorageService.getAccuracyResultByVideoId(att.video.id),
@@ -86,7 +83,9 @@ export const SessionDetailPage: React.FC = () => {
 
         setSpeedResults(spdMap);
         setAccuracyResults(accMap);
-        setAccuracySummary(accuracyCalculationEngine.computeSessionSummary(accList));
+        if (accList.length > 0) {
+          setAccuracySummary(accuracyCalculationEngine.computeSessionSummary(accList));
+        }
       }
     } catch (err) {
       console.error('Gagal mengambil detail sesi:', err);
@@ -112,17 +111,19 @@ export const SessionDetailPage: React.FC = () => {
     );
   }
 
-  const completedAttempts = session.attempts.filter(
-    (att) => att.video || att.status === 'Video Tersedia'
-  ).length;
-
   const handleUploadSuccess = async (
     attemptId: string,
     metadata: Omit<Video, 'id'>,
     blob: Blob
   ) => {
-    const updated = await sessionService.updateAttemptVideo(session.id, attemptId, metadata, blob);
-    setSession({ ...updated });
+    const videoPayload: Video = {
+      ...metadata,
+      id: `vid-${Date.now()}`,
+    };
+    const updated = await sessionService.updateAttemptVideo(session.id, attemptId, videoPayload, blob);
+    if (updated) {
+      setSession(updated);
+    }
     fetchSessionAndData();
   };
 
@@ -137,21 +138,25 @@ export const SessionDetailPage: React.FC = () => {
 
     tempVideo.onloadedmetadata = async () => {
       URL.revokeObjectURL(tempUrl);
+      const videoPayload: Video = {
+        id: `vid-${Date.now()}`,
+        attemptId,
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || 'video/mp4',
+        durationSeconds: tempVideo.duration || 0,
+        uploadedAt: new Date().toISOString(),
+        status: 'ready',
+      };
       const updated = await sessionService.updateAttemptVideo(
         session.id,
         attemptId,
-        {
-          attemptId,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type || 'video/mp4',
-          durationSeconds: tempVideo.duration || 0,
-          uploadedAt: new Date().toISOString(),
-          status: 'ready',
-        },
+        videoPayload,
         file
       );
-      setSession({ ...updated });
+      if (updated) {
+        setSession(updated);
+      }
       setReplaceTarget(null);
       fetchSessionAndData();
     };
@@ -159,8 +164,7 @@ export const SessionDetailPage: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (!deleteTargetAttemptId) return;
-    const updated = await sessionService.removeAttemptVideo(session.id, deleteTargetAttemptId);
-    setSession({ ...updated });
+    await sessionService.removeAttemptVideo(session.id, deleteTargetAttemptId);
     setDeleteTargetAttemptId(null);
     fetchSessionAndData();
   };
@@ -279,7 +283,7 @@ export const SessionDetailPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Tabel Rekapitulasi 5 Percobaan — Full Width (Lebih Luas & Jelas) */}
+      {/* Tabel Rekapitulasi 5 Percobaan */}
       <Card
         title="Rekapitulasi 5 Percobaan Tendangan"
         subtitle="Data pengukuran kecepatan puncak, simpangan titik sasaran, dan akurasi tiap percobaan"
@@ -298,8 +302,8 @@ export const SessionDetailPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-dark-border/60">
               {session.attempts.map((att) => {
-                const spd = att.video ? speedResults[att.video.id] : null;
-                const acc = att.video ? accuracyResults[att.video.id] : null;
+                const spd = att.video && att.video.id ? speedResults[att.video.id] : null;
+                const acc = att.video && att.video.id ? accuracyResults[att.video.id] : null;
 
                 const isHit = acc?.finalResult === 'hit';
                 const isMiss = acc?.finalResult === 'miss';
@@ -324,7 +328,7 @@ export const SessionDetailPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-4 font-mono font-bold text-primary text-base">
                       {spd ? (
-                        spd.calibrationAvailable && spd.peakSpeedMetersPerSecond !== null ? (
+                        spd.calibrationAvailable && spd.peakSpeedMetersPerSecond !== null && spd.peakSpeedMetersPerSecond !== undefined ? (
                           <span>{spd.peakSpeedMetersPerSecond.toFixed(2)} <span className="text-xs font-normal text-dark-secondary">m/s</span></span>
                         ) : (
                           <span>{spd.peakSpeedPixelsPerSecond.toFixed(0)} <span className="text-xs font-normal text-dark-secondary">px/s</span></span>
@@ -335,7 +339,7 @@ export const SessionDetailPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-4 font-mono text-dark font-medium">
                       {acc ? (
-                        acc.distanceCentimeters !== null ? (
+                        acc.distanceCentimeters !== null && acc.distanceCentimeters !== undefined ? (
                           <span className="text-sm font-semibold">{acc.distanceCentimeters.toFixed(1)} cm</span>
                         ) : (
                           <span className="text-xs text-dark-secondary">{acc.distancePixels?.toFixed(1)} px</span>
@@ -399,7 +403,10 @@ export const SessionDetailPage: React.FC = () => {
               <VideoCard
                 attempt={att}
                 onUploadSuccess={handleUploadSuccess}
-                onDeleteVideo={sessionService.removeAttemptVideo.bind(null, session.id)}
+                onDeleteVideo={async () => {
+                  await sessionService.removeAttemptVideo(session.id, att.id);
+                  fetchSessionAndData();
+                }}
                 onAskReplace={(attemptId, file) => setReplaceTarget({ attemptId, file })}
                 onAskDelete={(attemptId) => setDeleteTargetAttemptId(attemptId)}
               />
@@ -428,7 +435,7 @@ export const SessionDetailPage: React.FC = () => {
         videoElement={null}
         videoWidth={640}
         videoHeight={360}
-        onSaveTarget={async (newTarget) => {
+        onSaveTarget={async (newTarget: TargetDefinition) => {
           setTarget(newTarget);
           await accuracyStorageService.saveTarget(newTarget);
           fetchSessionAndData();

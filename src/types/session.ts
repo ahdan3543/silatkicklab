@@ -13,7 +13,7 @@ export type SessionStatus =
 export interface SessionAttempt {
   id: string;
   sessionId: string;
-  attemptNumber: number | 1 | 2 | 3 | 4 | 5;
+  attemptNumber: any;
   videoId?: string | null;
   video?: VideoMetadata | null;
   status?: 'Belum Diunggah' | 'Video Tersedia' | 'Dianalisis' | string;
@@ -33,6 +33,7 @@ export interface AnalysisSession {
   athleteCode?: string;
   date: string;
   kickingLeg: 'Kanan' | 'Kiri';
+  notes?: string;
   status?: SessionStatus;
   attempts: SessionAttempt[];
   summary?: any;

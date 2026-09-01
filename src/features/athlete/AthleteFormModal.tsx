@@ -30,7 +30,6 @@ export const AthleteFormModal: React.FC<AthleteFormModalProps> = ({
   const [recoveryPhase, setRecoveryPhase] = useState('Mid');
   const [status, setStatus] = useState<AthleteStatus>('Aktif');
   const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -63,7 +62,6 @@ export const AthleteFormModal: React.FC<AthleteFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      setLoading(true);
       const birthYear = new Date(birthDate).getFullYear();
       const currentYear = new Date().getFullYear();
       const age = currentYear - birthYear;
@@ -92,8 +90,6 @@ export const AthleteFormModal: React.FC<AthleteFormModalProps> = ({
       onSuccess();
     } catch (err) {
       console.error('Gagal menyimpan atlet:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -107,7 +103,7 @@ export const AthleteFormModal: React.FC<AthleteFormModalProps> = ({
           <Button variant="outline" onClick={onClose}>
             Batal
           </Button>
-          <Button variant="primary" loading={loading} icon={<Save size={14} />} onClick={handleSubmit}>
+          <Button variant="primary" icon={<Save size={14} />} onClick={handleSubmit}>
             Simpan Atlet
           </Button>
         </div>

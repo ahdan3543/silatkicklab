@@ -1,5 +1,6 @@
 import { AnalysisSession, SessionAttempt, SessionStatus, MAX_ATTEMPTS } from '../types';
 import { mockSessions } from '../data/mockData';
+import { VideoMetadata } from '../types/video';
 
 const STORAGE_KEY = 'silat_motion_sessions';
 
@@ -38,12 +39,18 @@ export const sessionService = {
     return sessions.find((s) => s.id === id) || null;
   },
 
+  getSessionsByAthleteId: async (athleteId: string): Promise<AnalysisSession[]> => {
+    const sessions = await sessionService.getAllSessions();
+    return sessions.filter((s) => s.athleteId === athleteId);
+  },
+
   createSession: async (payload: {
     athleteId: string;
     athleteName?: string;
     athleteCode?: string;
     date: string;
     kickingLeg: 'Kanan' | 'Kiri';
+    notes?: string;
   }): Promise<AnalysisSession> => {
     const sessions = await sessionService.getAllSessions();
     const newId = `ses-${Date.now()}`;
@@ -57,6 +64,7 @@ export const sessionService = {
       athleteCode: payload.athleteCode,
       date: payload.date,
       kickingLeg: payload.kickingLeg,
+      notes: payload.notes,
       status: 'Draft',
       attempts: initializeAttempts(newId),
       createdAt: new Date().toISOString(),
@@ -86,6 +94,25 @@ export const sessionService = {
     sessions[index] = updated;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
     return updated;
+  },
+
+  updateAttemptVideo: async (
+    sessionId: string,
+    attemptId: string,
+    metadata: VideoMetadata,
+    _blob?: Blob
+  ): Promise<AnalysisSession> => {
+    const session = await sessionService.getSessionById(sessionId);
+    if (!session) throw new Error('Sesi tidak ditemukan');
+
+    const attemptIndex = session.attempts.findIndex((a) => a.id === attemptId);
+    if (attemptIndex !== -1) {
+      session.attempts[attemptIndex].video = metadata;
+      session.attempts[attemptIndex].videoId = metadata.id;
+      session.attempts[attemptIndex].status = 'Video Tersedia';
+    }
+
+    return await sessionService.updateSession(sessionId, { attempts: session.attempts });
   },
 
   deleteSession: async (id: string): Promise<void> => {

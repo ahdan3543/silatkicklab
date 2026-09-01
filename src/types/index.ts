@@ -1,6 +1,5 @@
 export * from './athlete';
 export * from './video';
-export * from './analysis';
 export * from './session';
 export * from './pose';
 export * from './speed';

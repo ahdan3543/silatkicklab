@@ -8,7 +8,7 @@ export interface VideoMetadata {
   width?: number;
   height?: number;
   uploadedAt: string;
-  blobUrl: string;
+  blobUrl?: string;
   fileUrl?: string;
   status?: string;
 }

@@ -54,6 +54,8 @@ export interface SessionAccuracySummary {
   totalEvaluated: number;
   hitsCount: number;
   missesCount: number;
+  validAttempts: number;
   accuracyPercentage: number;
+  averageDistanceCm?: number | null;
   avgDistanceCentimeters?: number | null;
 }
