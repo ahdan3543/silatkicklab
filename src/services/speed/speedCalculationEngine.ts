@@ -219,7 +219,7 @@ export const speedCalculationEngine = {
 
       if (angle >= 150 && normReach >= 0.85) {
         impactIdx = i;
-        break; // Kunci frame paling awal dari plateau ekstensi maksimal
+        break;
       }
     }
 
@@ -245,7 +245,6 @@ export const speedCalculationEngine = {
         const normReach = reachData[i].reach / maxForwardReach;
         const angle = smoothedAngles[i];
 
-        // Abaikan frame yang sudah jelas melipat kembali (< 120°)
         if (angle < 120 && i > extensionIdx + 3) continue;
 
         const score = normReach * 1.5 + (angle / 180) * 2.0;
@@ -279,8 +278,8 @@ export const speedCalculationEngine = {
     const impactFrame = trajectory[impactIdx]?.frameNumber || trajectory.length;
     const recoveryFrame = trajectory[recoveryIdx]?.frameNumber || impactFrame;
 
-    // Development Debug Logging
-    if (process.env.NODE_ENV !== 'production') {
+    // Debug logging ramah browser (tanpa ketergantungan process.env Node.js)
+    if (typeof window !== 'undefined') {
       console.debug('[Impact Detection]', {
         impactFrame,
         impactKneeAngle: Math.round(smoothedAngles[impactIdx] || 0),
