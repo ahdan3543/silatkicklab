@@ -29,6 +29,7 @@ import { athleteService } from '../services/athleteService';
 import { speedStorageService } from '../services/speed/speedStorageService';
 import { accuracyStorageService } from '../services/accuracy/accuracyStorageService';
 import { accuracyCalculationEngine } from '../services/accuracy/accuracyCalculationEngine';
+import { videoStorageService } from '../services/videoStorageService';
 import { formatDate } from '../utils/formatters';
 
 export const SessionDetailPage: React.FC = () => {
@@ -116,15 +117,21 @@ export const SessionDetailPage: React.FC = () => {
     metadata: Omit<Video, 'id'>,
     blob: Blob
   ) => {
+    const videoId = `vid-${Date.now()}`;
     const videoPayload: Video = {
       ...metadata,
-      id: `vid-${Date.now()}`,
+      id: videoId,
     };
+
+    // Simpan ke storage Blob IndexedDB dengan ID attempt dan ID video agar sinkron
+    await videoStorageService.saveVideoBlob(attemptId, blob);
+    await videoStorageService.saveVideoBlob(videoId, blob);
+
     const updated = await sessionService.updateAttemptVideo(session.id, attemptId, videoPayload, blob);
     if (updated) {
       setSession(updated);
     }
-    fetchSessionAndData();
+    await fetchSessionAndData();
   };
 
   const handleConfirmReplace = async () => {
@@ -138,8 +145,9 @@ export const SessionDetailPage: React.FC = () => {
 
     tempVideo.onloadedmetadata = async () => {
       URL.revokeObjectURL(tempUrl);
+      const videoId = `vid-${Date.now()}`;
       const videoPayload: Video = {
-        id: `vid-${Date.now()}`,
+        id: videoId,
         attemptId,
         fileName: file.name,
         fileSize: file.size,
@@ -148,6 +156,11 @@ export const SessionDetailPage: React.FC = () => {
         uploadedAt: new Date().toISOString(),
         status: 'ready',
       };
+
+      // Pastikan Blob file disimpan ke IndexedDB
+      await videoStorageService.saveVideoBlob(attemptId, file);
+      await videoStorageService.saveVideoBlob(videoId, file);
+
       const updated = await sessionService.updateAttemptVideo(
         session.id,
         attemptId,
@@ -158,15 +171,16 @@ export const SessionDetailPage: React.FC = () => {
         setSession(updated);
       }
       setReplaceTarget(null);
-      fetchSessionAndData();
+      await fetchSessionAndData();
     };
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTargetAttemptId) return;
+    await videoStorageService.deleteVideoBlob(deleteTargetAttemptId);
     await sessionService.removeAttemptVideo(session.id, deleteTargetAttemptId);
     setDeleteTargetAttemptId(null);
-    fetchSessionAndData();
+    await fetchSessionAndData();
   };
 
   const accuracyResultsList = Object.values(accuracyResults);
@@ -491,6 +505,8 @@ export const SessionDetailPage: React.FC = () => {
                 attempt={att}
                 onUploadSuccess={handleUploadSuccess}
                 onDeleteVideo={async () => {
+                  await videoStorageService.deleteVideoBlob(att.id);
+                  if (att.video) await videoStorageService.deleteVideoBlob(att.video.id);
                   await sessionService.removeAttemptVideo(session.id, att.id);
                   fetchSessionAndData();
                 }}
