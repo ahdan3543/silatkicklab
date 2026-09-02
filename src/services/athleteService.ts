@@ -3,16 +3,47 @@ import { mockAthletes } from '../data/mockData';
 
 const STORAGE_KEY = 'silat_kick_athletes_data';
 
+// Ambil data Ahdan saja dari mockAthletes sebagai data bawaan
+const DEFAULT_ATHLETES: Athlete[] = mockAthletes.filter(
+  (a) =>
+    a.name.toLowerCase().includes('ahdan') ||
+    a.athleteCode.toLowerCase().includes('ahdan')
+);
+
+// Fallback jika di mockData nama Ahdan tidak tertulis persis
+const INITIAL_DATA: Athlete[] =
+  DEFAULT_ATHLETES.length > 0
+    ? DEFAULT_ATHLETES
+    : [
+        {
+          id: 'ath-001',
+          athleteCode: 'AT-001',
+          name: 'Muhammad Ahdan Haqiqin',
+          category: 'Tanding',
+          classCategory: 'Kelas C (Dewasa)',
+          gender: 'Laki-laki',
+          dominantLeg: 'Kanan',
+          injuryStatus: 'Pasca Cedera (Tahap Pemulihan)',
+          createdAt: '2026-01-15',
+        } as any,
+      ];
+
 const getStoredAthletes = (): Athlete[] => {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(mockAthletes));
-    return mockAthletes;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DATA));
+    return INITIAL_DATA;
   }
   try {
-    return JSON.parse(data);
+    const parsed: Athlete[] = JSON.parse(data);
+    // Hapus data Siti jika sebelumnya sempat tersimpan di browser
+    const cleaned = parsed.filter((a) => !a.name.toLowerCase().includes('siti'));
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
-    return mockAthletes;
+    return INITIAL_DATA;
   }
 };
 
