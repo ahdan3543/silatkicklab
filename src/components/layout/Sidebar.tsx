@@ -55,7 +55,7 @@ export const Sidebar: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <UpiLogo className="w-8 h-8 shrink-0" />
           <div className="flex flex-col">
-            <span className="text-sm font-black tracking-wider text-slate-900 leading-tight">SILAT-KICK</span>
+            <span className="text-sm font-black tracking-wider text-slate-900 leading-tight">SILAT MOTION</span>
             <span className="text-[9.5px] text-slate-500 font-medium">Monitoring Pasca Cedera UPI</span>
           </div>
         </div>
@@ -87,7 +87,7 @@ export const Sidebar: React.FC = () => {
           <div className="flex items-center gap-3 pb-5 border-b border-slate-100">
             <UpiLogo className="w-10 h-10 shrink-0" />
             <div>
-              <h1 className="text-base font-black tracking-wide text-slate-900">SILAT-KICK</h1>
+              <h1 className="text-base font-black tracking-wide text-slate-900">SILAT MOTION</h1>
               <p className="text-[10.5px] font-semibold text-slate-500 leading-tight">Universitas Pendidikan Indonesia</p>
             </div>
           </div>

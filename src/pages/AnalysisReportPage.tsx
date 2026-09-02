@@ -311,7 +311,7 @@ export const AnalysisReportPage: React.FC = () => {
               Universitas Pendidikan Indonesia
             </h2>
             <h1 className="text-xl font-black uppercase tracking-wider text-dark leading-tight">
-              SILAT-KICK
+              SILAT MOTION
             </h1>
             <p className="text-[10.5px] font-semibold text-dark-secondary">
               Sistem Monitoring & Evaluasi Tendangan Depan Atlet Pencak Silat
@@ -555,9 +555,9 @@ export const AnalysisReportPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 8. FOOTER */}
+        {/* 8. FOOTER DENGAN IDENTITAS SILAT MOTION */}
         <div className="border-t border-dark-border pt-1.5 flex items-center justify-between text-[9px] text-dark-secondary font-mono">
-          <span>SILAT-KICK • Versi Laporan {report.reportVersion}</span>
+          <span>SILAT MOTION • Versi Laporan {report.reportVersion}</span>
           <span>Dicetak: {new Date().toLocaleString('id-ID')}</span>
         </div>
 

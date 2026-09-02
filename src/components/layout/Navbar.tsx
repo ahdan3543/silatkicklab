@@ -8,9 +8,6 @@ export const Navbar: React.FC = () => {
         <h2 className="text-sm font-semibold text-dark">
           Sistem Monitoring & Evaluasi Tendangan Depan
         </h2>
-        <p className="text-xs text-dark-secondary">
-          Fokus: Akurasi Sasaran & Kecepatan Impak Atlet Pasca Cedera
-        </p>
       </div>
 
       <div className="flex items-center gap-4">
