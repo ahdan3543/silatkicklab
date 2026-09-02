@@ -10,17 +10,18 @@ import {
   RotateCcw,
   Zap,
   Ruler,
-  AlertTriangle,
   Target as TargetIcon,
   CheckCircle2,
   XCircle,
+  Maximize2,
+  Minimize2,
+  X,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { PoseCanvasOverlay } from './PoseCanvasOverlay';
-import { TrajectoryOverlay } from './TrajectoryOverlay';
 import { TargetOverlay } from './TargetOverlay';
 import { VelocityChart } from './VelocityChart';
 import { CalibrationModal } from './CalibrationModal';
@@ -38,7 +39,7 @@ import { speedStorageService } from '../../services/speed/speedStorageService';
 import { speedCalculationEngine } from '../../services/speed/speedCalculationEngine';
 import { accuracyStorageService } from '../../services/accuracy/accuracyStorageService';
 import { accuracyCalculationEngine } from '../../services/accuracy/accuracyCalculationEngine';
-import { formatDuration, formatFileSize } from '../../utils/formatters';
+import { formatDuration } from '../../utils/formatters';
 
 export const VideoAnalysisView: React.FC = () => {
   const { sessionId, attemptId } = useParams<{ sessionId: string; attemptId: string }>();
@@ -58,6 +59,7 @@ export const VideoAnalysisView: React.FC = () => {
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [videoDims, setVideoDims] = useState<{ width: number; height: number }>({ width: 640, height: 360 });
+  const [isExpandedView, setIsExpandedView] = useState<boolean>(false);
 
   // Pose Engine States
   const [analysisStatus, setAnalysisStatus] = useState<PoseAnalysisStatus>('idle');
@@ -76,7 +78,7 @@ export const VideoAnalysisView: React.FC = () => {
   const [isTargetSetupOpen, setIsTargetSetupOpen] = useState<boolean>(false);
   const [currentFrameNum, setCurrentFrameNum] = useState<number>(1);
 
-  // 1. Muat Sesi, Video, Pose, Speed, & Target Data
+  // 1. Muat Sesi, Video, Pose, Speed, & Target Data[cite: 2]
   useEffect(() => {
     let activeObjectUrl: string | null = null;
 
@@ -132,7 +134,7 @@ export const VideoAnalysisView: React.FC = () => {
     };
   }, [sessionId, attemptId]);
 
-  // 2. Sinkronisasi Pose Saat Video Diputar
+  // 2. Sinkronisasi Pose Saat Video Diputar[cite: 2]
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const t = videoRef.current.currentTime;
@@ -160,7 +162,7 @@ export const VideoAnalysisView: React.FC = () => {
     setVideoDims({ width: v.videoWidth || 640, height: v.videoHeight || 360 });
   };
 
-  // 3. Eksekusi Analisis Kecepatan & Akurasi
+  // 3. Eksekusi Analisis Kecepatan & Akurasi Terpadu[cite: 2]
   const triggerSpeedAndAccuracy = async (
     currentPose: PoseAnalysisResult,
     dominantLeg: 'Kanan' | 'Kiri',
@@ -170,7 +172,8 @@ export const VideoAnalysisView: React.FC = () => {
   ) => {
     if (!attempt?.video || !sessionId) return;
 
-    // Kalkulasi Kecepatan
+    const activeTarget = currentTarget !== undefined ? currentTarget : target;
+
     const { trajectory, trackingPoint } = speedCalculationEngine.extractTrajectory(
       currentPose,
       dominantLeg,
@@ -210,23 +213,25 @@ export const VideoAnalysisView: React.FC = () => {
     await speedStorageService.saveSpeedResult(fullSpeedResult);
     setSpeedResult(fullSpeedResult);
 
-    // Kalkulasi Akurasi
-    const activeTarget = currentTarget !== undefined ? currentTarget : target;
+    // Hitung Akurasi Strictly dari accuracyCalculationEngine[cite: 2]
     if (activeTarget) {
-      const acc = (accuracyCalculationEngine.evaluateAttemptAccuracy as any)(
-        attempt.video.id,
-        attempt.id,
-        sessionId,
-        currentPose,
-        phases.impactFrame,
-        dominantLeg,
+      const calculatedAccuracy = accuracyCalculationEngine.calculateAccuracy(
         activeTarget,
+        currentPose,
+        fullSpeedResult,
+        phases.impactFrame,
+        calibration,
         videoDims.width,
         videoDims.height,
-        calibration
+        dominantLeg
       );
-      await accuracyStorageService.saveAccuracyResult(acc);
-      setAccuracyResult(acc);
+
+      if (customPhases) {
+        calculatedAccuracy.evaluationMethod = 'manual-corrected';
+      }
+
+      await accuracyStorageService.saveAccuracyResult(calculatedAccuracy);
+      setAccuracyResult(calculatedAccuracy);
     }
   };
 
@@ -303,7 +308,7 @@ export const VideoAnalysisView: React.FC = () => {
       setPoseResult(finalPoseResult);
       setAnalysisStatus('completed');
 
-      triggerSpeedAndAccuracy(finalPoseResult, athlete?.dominantLeg || 'Kanan');
+      await triggerSpeedAndAccuracy(finalPoseResult, athlete?.dominantLeg || 'Kanan');
       video.currentTime = 0;
     } catch (err) {
       console.error('Eksekusi gagal:', err);
@@ -315,7 +320,7 @@ export const VideoAnalysisView: React.FC = () => {
     setTarget(newTarget);
     await accuracyStorageService.saveTarget(newTarget);
     if (poseResult && speedResult) {
-      triggerSpeedAndAccuracy(
+      await triggerSpeedAndAccuracy(
         poseResult,
         athlete?.dominantLeg || 'Kanan',
         speedResult.calibration || undefined,
@@ -352,6 +357,7 @@ export const VideoAnalysisView: React.FC = () => {
       ...accuracyResult,
       manualOverride: nextOverride,
       finalResult: nextOverride,
+      isManualCorrected: true,
       evaluationMethod: 'manual-corrected',
     };
     await accuracyStorageService.saveAccuracyResult(updated);
@@ -385,6 +391,13 @@ export const VideoAnalysisView: React.FC = () => {
     setCurrentTime(nextTime);
   };
 
+  const handleJumpToImpact = () => {
+    if (!videoRef.current || !speedResult?.impactFrame) return;
+    const t = (speedResult.impactFrame - 1) / 30;
+    videoRef.current.currentTime = t;
+    setCurrentTime(t);
+  };
+
   if (loading) {
     return <LoadingState message="Memuat modul analisis tendangan..." />;
   }
@@ -399,10 +412,139 @@ export const VideoAnalysisView: React.FC = () => {
   }
 
   const isAtImpactFrame = currentFrameNum === (speedResult?.impactFrame || 0);
+  const targetRadiusPercentage = target
+    ? (((target as any).radiusNormalized ?? (target as any).radius ?? 0.05) * 100).toFixed(1)
+    : '0.0';
+
+  // Sub-komponen Player & Kontrol yang dipakai di mode normal maupun mode besar
+  const renderVideoPlayerBlock = () => (
+    <div className="space-y-3">
+      {/* Box Video & Pose Canvas */}
+      <div className="relative aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-inner">
+        {videoUrl ? (
+          <>
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              playsInline
+              preload="auto"
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onEnded={() => setIsPlaying(false)}
+              className="w-full h-full object-contain"
+            />
+            <PoseCanvasOverlay
+              currentFramePose={currentFramePose}
+              videoWidth={videoDims.width}
+              videoHeight={videoDims.height}
+            />
+            <TargetOverlay
+              target={target}
+              accuracyResult={accuracyResult}
+              videoWidth={videoDims.width}
+              videoHeight={videoDims.height}
+              isImpactFrame={isAtImpactFrame}
+            />
+          </>
+        ) : (
+          <div className="text-slate-500 text-xs">Video tidak dapat dimuat</div>
+        )}
+
+        {analysisStatus === 'processing' && (
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center text-white">
+            <Activity size={36} className="text-accent animate-pulse mb-3" />
+            <h4 className="text-sm font-bold">Menganalisis Gerak Biomekanika...</h4>
+            <p className="text-xs text-slate-300 mt-1 mb-4">
+              Frame: {processedFramesCount} / {totalEstimatedFrames} ({progressPercent}%)
+            </p>
+            <div className="w-64 bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div className="bg-accent h-2 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Kontrol Pemutar Lengkap (Selalu Ada) */}
+      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-white space-y-2.5">
+        {/* Seekbar Time slider */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">
+            {formatDuration(currentTime)}
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={duration || 1}
+            step={0.01}
+            value={currentTime}
+            onChange={handleSeek}
+            disabled={analysisStatus === 'processing'}
+            className="flex-1 accent-accent h-2 sm:h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+          />
+          <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">
+            {formatDuration(duration)}
+          </span>
+        </div>
+
+        {/* Action Buttons Row */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={handleTogglePlay}
+              disabled={analysisStatus === 'processing'}
+              className="p-2 sm:p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+              aria-label={isPlaying ? 'Jeda' : 'Putar'}
+            >
+              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+            <button
+              onClick={() => handleFrameStep('prev')}
+              disabled={analysisStatus === 'processing' || isPlaying}
+              className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
+            >
+              <ChevronLeft size={14} /> Frame
+            </button>
+            <button
+              onClick={() => handleFrameStep('next')}
+              disabled={analysisStatus === 'processing' || isPlaying}
+              className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
+            >
+              Frame <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {speedResult?.impactFrame && (
+              <button
+                onClick={handleJumpToImpact}
+                className="text-[10px] font-mono bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-md text-slate-300 transition-colors"
+              >
+                Loncat ke Impak
+              </button>
+            )}
+
+            <div className="text-[10px] sm:text-[11px] text-slate-300 font-mono bg-slate-800/80 px-2 py-1 rounded">
+              Frame #{currentFrameNum} / {poseResult?.totalFrames || '-'} {isAtImpactFrame ? '● IMPACT' : ''}
+            </div>
+
+            {/* Tombol Perbesar / Perkecil Ukuran */}
+            <button
+              type="button"
+              onClick={() => setIsExpandedView(!isExpandedView)}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-colors"
+              title={isExpandedView ? 'Kecilkan Tampilan' : 'Perbesar Tampilan Video'}
+            >
+              {isExpandedView ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4 md:space-y-6 pb-24 md:pb-8">
-      {/* Header Bar Responsif */}
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 md:p-0 rounded-xl md:rounded-none border md:border-none border-dark-border">
         <div className="flex items-center gap-2.5">
           <button
@@ -417,8 +559,8 @@ export const VideoAnalysisView: React.FC = () => {
                 Analisis Akurasi & Kecepatan — Percobaan #{attempt.attemptNumber}
               </h2>
               {accuracyResult && (
-                <Badge variant={accuracyResult.finalResult === 'hit' ? 'success' : accuracyResult.finalResult === 'miss' ? 'primary' : 'neutral'}>
-                  {accuracyResult.finalResult === 'hit' ? 'TARGET HIT' : accuracyResult.finalResult === 'miss' ? 'TARGET MISS' : 'INVALID'}
+                <Badge variant={accuracyResult.finalResult === 'hit' ? 'success' : 'neutral'}>
+                  {accuracyResult.finalResult === 'hit' ? 'TARGET HIT' : 'TARGET MISS'}
                 </Badge>
               )}
             </div>
@@ -450,103 +592,12 @@ export const VideoAnalysisView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Workspace */}
+      {/* Main Workspace (Grid 2 Kolom) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-        {/* Kolom Kiri: Video & Canvas (7 Cols) */}
+        {/* Kolom Kiri: Video & Canvas */}
         <div className="lg:col-span-7 space-y-4">
           <Card className="p-2 sm:p-4 bg-slate-950 border-slate-900 overflow-hidden">
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
-              {videoUrl ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    playsInline
-                    preload="auto"
-                    onTimeUpdate={handleTimeUpdate}
-                    onLoadedMetadata={handleLoadedMetadata}
-                    onEnded={() => setIsPlaying(false)}
-                    className="w-full h-full object-contain"
-                  />
-                  <PoseCanvasOverlay
-                    currentFramePose={currentFramePose}
-                    videoWidth={videoDims.width}
-                    videoHeight={videoDims.height}
-                  />
-                  <TargetOverlay
-                    target={target}
-                    accuracyResult={accuracyResult}
-                    videoWidth={videoDims.width}
-                    videoHeight={videoDims.height}
-                    isImpactFrame={isAtImpactFrame}
-                  />
-                </>
-              ) : (
-                <div className="text-slate-500 text-xs">Video tidak dapat dimuat</div>
-              )}
-
-              {analysisStatus === 'processing' && (
-                <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center text-white">
-                  <Activity size={36} className="text-accent animate-pulse mb-3" />
-                  <h4 className="text-sm font-bold">Menganalisis Gerak Biomekanika...</h4>
-                  <p className="text-xs text-slate-300 mt-1 mb-4">
-                    Frame: {processedFramesCount} / {totalEstimatedFrames} ({progressPercent}%)
-                  </p>
-                  <div className="w-64 bg-slate-800 rounded-full h-2 overflow-hidden">
-                    <div className="bg-accent h-2 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Controls */}
-            <div className="mt-3 pt-3 border-t border-slate-800 text-white space-y-3">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">{formatDuration(currentTime)}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 1}
-                  step={0.01}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  disabled={analysisStatus === 'processing'}
-                  className="flex-1 accent-accent h-2 sm:h-1.5 bg-slate-800 rounded-lg cursor-pointer"
-                />
-                <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">{formatDuration(duration)}</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <button
-                    onClick={handleTogglePlay}
-                    disabled={analysisStatus === 'processing'}
-                    className="p-2 sm:p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors"
-                    aria-label={isPlaying ? 'Jeda' : 'Putar'}
-                  >
-                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                  </button>
-                  <button
-                    onClick={() => handleFrameStep('prev')}
-                    disabled={analysisStatus === 'processing' || isPlaying}
-                    className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
-                  >
-                    <ChevronLeft size={14} /> Frame
-                  </button>
-                  <button
-                    onClick={() => handleFrameStep('next')}
-                    disabled={analysisStatus === 'processing' || isPlaying}
-                    className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
-                  >
-                    Frame <ChevronRight size={14} />
-                  </button>
-                </div>
-
-                <div className="text-[10px] sm:text-[11px] text-slate-400 font-mono">
-                  Frame #{currentFrameNum} / {poseResult?.totalFrames || '-'} {isAtImpactFrame ? '● IMPACT' : ''}
-                </div>
-              </div>
-            </div>
+            {renderVideoPlayerBlock()}
           </Card>
 
           {/* Grafik Kecepatan */}
@@ -561,7 +612,7 @@ export const VideoAnalysisView: React.FC = () => {
           )}
         </div>
 
-        {/* Kolom Kanan: Panel Akurasi & Fase (5 Cols) */}
+        {/* Kolom Kanan: Panel Akurasi & Fase */}
         <div className="lg:col-span-5 space-y-4">
           {/* Card Hasil Akurasi */}
           <Card title="Evaluasi Akurasi Sasaran" subtitle="Perbandingan Titik Impak vs Target Center">
@@ -571,7 +622,7 @@ export const VideoAnalysisView: React.FC = () => {
                   className={`p-3.5 sm:p-4 rounded-xl border text-white shadow-subtle ${
                     accuracyResult.finalResult === 'hit'
                       ? 'bg-gradient-to-r from-emerald-800 to-emerald-600 border-emerald-500'
-                      : 'bg-gradient-to-r from-primary-dark to-primary border-primary-light'
+                      : 'bg-gradient-to-r from-rose-900 to-rose-700 border-rose-600'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -587,7 +638,7 @@ export const VideoAnalysisView: React.FC = () => {
                     {accuracyResult.finalResult === 'hit' ? (
                       <CheckCircle2 size={30} className="text-emerald-300 shrink-0" />
                     ) : (
-                      <XCircle size={30} className="text-amber-300 shrink-0" />
+                      <XCircle size={30} className="text-rose-200 shrink-0" />
                     )}
                     <div>
                       <h3 className="text-xl sm:text-2xl font-bold">
@@ -613,7 +664,7 @@ export const VideoAnalysisView: React.FC = () => {
                   <div className="p-2.5 sm:p-3 bg-slate-50 border border-dark-border rounded-lg">
                     <span className="text-dark-secondary block text-[11px]">Batas Radius Sasaran</span>
                     <span className="text-sm sm:text-base font-bold text-dark font-mono mt-0.5 block">
-                      {(target.radiusNormalized * 100).toFixed(1)}% Frame
+                      {targetRadiusPercentage}% Frame
                     </span>
                   </div>
                 </div>
@@ -634,7 +685,7 @@ export const VideoAnalysisView: React.FC = () => {
 
           {/* Card Deteksi & Koreksi Fase */}
           {speedResult && (
-            <Card title="Koreksi Fase Tendangan" subtitle="Perubahan Impact Frame otomatis mengupdate Akurasi">
+            <Card title="Koreksi Fase Tendangan" subtitle="Perubahan slider otomatis memperbarui koordinat dan status HIT/MISS">
               <div className="space-y-3 text-xs">
                 <div>
                   <div className="flex justify-between mb-1">
@@ -679,6 +730,35 @@ export const VideoAnalysisView: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* MODE TAMPILAN BESAR (EXPANDED FOCUS MODAL) */}
+      {isExpandedView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-5xl bg-slate-950 rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between text-white border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">Fokus Analisis Video — Percobaan #{attempt.attemptNumber}</span>
+                {accuracyResult && (
+                  <Badge variant={accuracyResult.finalResult === 'hit' ? 'success' : 'neutral'}>
+                    {accuracyResult.finalResult === 'hit' ? 'TARGET HIT' : 'TARGET MISS'}
+                  </Badge>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExpandedView(false)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+                title="Tutup Tampilan Besar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Video Player beserta kontrol tetap aktif */}
+            {renderVideoPlayerBlock()}
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <TargetSetupModal

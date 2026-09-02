@@ -25,53 +25,85 @@ export const TargetOverlay: React.FC<TargetOverlayProps> = ({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     if (!target) return;
 
     const w = canvas.width;
     const h = canvas.height;
-    const tX = target.centerX * w;
-    const tY = target.centerY * h;
-    const radius = target.radiusNormalized * w;
 
-    // 1. Gambar Target Zone (Lingkaran Merah Hati dengan Fill Transparan)
+    // Baca koordinat target secara fleksibel
+    const rawX =
+      (target as any).xNormalized ??
+      (target as any).centerNormalized?.x ??
+      (target as any).targetCenter?.normalizedX ??
+      (target as any).centerX ??
+      (target as any).x ??
+      0.5;
+
+    const rawY =
+      (target as any).yNormalized ??
+      (target as any).centerNormalized?.y ??
+      (target as any).targetCenter?.normalizedY ??
+      (target as any).centerY ??
+      (target as any).y ??
+      0.5;
+
+    const rawRad =
+      (target as any).radiusNormalized ??
+      (target as any).radius ??
+      (target as any).targetRadiusNormalized ??
+      0.04;
+
+    const tX = rawX <= 1.0 ? rawX * w : rawX;
+    const tY = rawY <= 1.0 ? rawY * h : rawY;
+    const radius = rawRad <= 1.0 ? rawRad * Math.min(w, h) : rawRad;
+
+    // 1. Gambar Target Lingkaran Merah Maroon
     ctx.beginPath();
     ctx.arc(tX, tY, radius, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(128, 0, 0, 0.2)';
+    ctx.fillStyle = 'rgba(128, 0, 0, 0.22)';
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#800000'; // Maroon
+    ctx.strokeStyle = '#800000';
     ctx.setLineDash([5, 3]);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Target Center Crosshair
+    // Titik Pusat Target
     ctx.beginPath();
     ctx.arc(tX, tY, 4, 0, 2 * Math.PI);
     ctx.fillStyle = '#800000';
     ctx.fill();
 
-    // 2. Gambar Posisi Kaki Saat Impact (Jika di Frame Impact)
-    if (isImpactFrame && accuracyResult && accuracyResult.impactFootPosition) {
-      const fX = accuracyResult.impactFootPosition.x * w;
-      const fY = accuracyResult.impactFootPosition.y * h;
+    // 2. Gambar Posisi Kaki & Garis Deviasi
+    if (isImpactFrame && accuracyResult) {
+      const footPos =
+        (accuracyResult as any).impactCoordinates ||
+        (accuracyResult as any).impactFootPosition ||
+        (accuracyResult as any).impactPoint;
 
-      // Garis Deviasi (Penghubung Foot -> Target Center)
-      ctx.beginPath();
-      ctx.moveTo(fX, fY);
-      ctx.lineTo(tX, tY);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = accuracyResult.finalResult === 'hit' ? '#10B981' : '#EF4444';
-      ctx.stroke();
+      if (footPos && typeof footPos.x === 'number' && typeof footPos.y === 'number') {
+        const fX = footPos.x <= 1.0 ? footPos.x * w : footPos.x;
+        const fY = footPos.y <= 1.0 ? footPos.y * h : footPos.y;
 
-      // Foot Impact Marker (X)
-      ctx.beginPath();
-      ctx.arc(fX, fY, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = accuracyResult.finalResult === 'hit' ? '#10B981' : '#EF4444';
-      ctx.fill();
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+        const isHit = accuracyResult.finalResult === 'hit';
+
+        // Garis penghubung kaki ke pusat sasaran
+        ctx.beginPath();
+        ctx.moveTo(fX, fY);
+        ctx.lineTo(tX, tY);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = isHit ? '#10B981' : '#EF4444';
+        ctx.stroke();
+
+        // Titik kaki atlet
+        ctx.beginPath();
+        ctx.arc(fX, fY, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = isHit ? '#10B981' : '#EF4444';
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
   }, [target, accuracyResult, videoWidth, videoHeight, isImpactFrame]);
 

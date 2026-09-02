@@ -5,9 +5,10 @@ interface PoseCanvasOverlayProps {
   currentFramePose?: FramePose | null;
   videoWidth: number;
   videoHeight: number;
+  target?: any;
 }
 
-// Koneksi sendi utama biomekanika (tanpa jari & wajah agar tidak mleyot/kusut)
+// Koneksi sendi utama biomekanika (tanpa jari & wajah agar tidak kusut)
 const CLEAN_BODY_CONNECTIONS: [number, number][] = [
   // Torso
   [11, 12], [11, 23], [12, 24], [23, 24],
@@ -44,12 +45,12 @@ export const PoseCanvasOverlay: React.FC<PoseCanvasOverlayProps> = ({
     const w = canvas.width;
     const h = canvas.height;
 
-    // 1. Gambar Garis Kerangka Tubuh (Cyan Neon Tegas)
+    // 1. Gambar Garis Kerangka Tubuh — Kuning Emas UPI
     ctx.lineWidth = 3.5;
-    ctx.strokeStyle = '#00F2FE';
+    ctx.strokeStyle = '#FACC15'; // Kuning khas UPI
     ctx.lineCap = 'round';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.shadowBlur = 6;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 5;
 
     for (const [startIdx, endIdx] of CLEAN_BODY_CONNECTIONS) {
       const p1 = landmarks[startIdx];
@@ -63,27 +64,29 @@ export const PoseCanvasOverlay: React.FC<PoseCanvasOverlayProps> = ({
       }
     }
 
-    // 2. Gambar Titik Sendi Utama
+    // 2. Gambar Titik Sendi Utama — Merah UPI
     const KEY_JOINTS = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 31, 32];
+    ctx.shadowBlur = 0; // Matikan blur shadow untuk titik sendi agar presisi
+
     for (const idx of KEY_JOINTS) {
       const lm = landmarks[idx];
       if (lm && (lm.visibility ?? 1) > 0.35) {
         const x = lm.x * w;
         const y = lm.y * h;
 
-        // Lingkaran luar hitam
+        // Lingkaran luar hitam (outline kontras)
         ctx.beginPath();
-        ctx.arc(x, y, 4.5, 0, 2 * Math.PI);
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = '#000000';
         ctx.fill();
 
-        // Lingkaran sendi Cyan
+        // Lingkaran sendi Merah UPI
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, 2 * Math.PI);
-        ctx.fillStyle = '#00F2FE';
+        ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#DC2626'; // Merah khas UPI
         ctx.fill();
 
-        // Titik pusat putih
+        // Titik pusat putih (titik tengah presisi)
         ctx.beginPath();
         ctx.arc(x, y, 1.2, 0, 2 * Math.PI);
         ctx.fillStyle = '#FFFFFF';
