@@ -24,7 +24,7 @@ const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) 
     return (
       <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="50" cy="50" r="48" fill="#800000" stroke="#F59E0B" strokeWidth="3" />
-        <circle cx="50" cy="50" r="38" fill="#FFFFFF" />
+        <circle cx="50" cy="38" fill="#FFFFFF" />
         <path d="M50 16 L58 34 L78 36 L64 50 L68 70 L50 60 L32 70 L36 50 L22 36 L42 34 Z" fill="#800000" />
         <circle cx="50" cy="50" r="13" fill="#F59E0B" />
         <circle cx="50" cy="50" r="9" fill="#800000" />
@@ -44,58 +44,87 @@ const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) 
   );
 };
 
-// Komponen Grafik Ringkas Terpadu
+// Komponen Grafik Cetak Terpadu (Tema Sport Light Academic)
 const UnifiedPerformanceChart: React.FC<{
   attempts: MergedAttemptResult[];
   speedUnit: string;
   distUnit: string;
 }> = ({ attempts, speedUnit, distUnit }) => {
-  const height = 155;
+  const height = 160;
   const width = 760;
-  const padding = { top: 22, right: 30, bottom: 32, left: 50 };
+  const padding = { top: 25, right: 30, bottom: 35, left: 50 };
 
-  const peakSpeeds = (attempts || []).map((a) => a?.peakSpeed || 0);
+  // Filter outlier agar skala grafik tetap proporsional
+  const normalSpeeds = (attempts || [])
+    .map((a) => a?.peakSpeed || 0)
+    .filter((v) => v > 0 && v < 35);
+  const benchmarkMaxSpeed = normalSpeeds.length > 0 ? Math.max(...normalSpeeds) : 15;
+  const maxSpeed = Math.max(16, Math.min(25, Math.ceil(benchmarkMaxSpeed * 1.25)));
+
   const distances = (attempts || []).map((a) => a?.distanceToTargetCm || 0);
+  const maxDist = Math.max(...distances, 8) * 1.25;
 
-  const maxSpeed = Math.max(...peakSpeeds, 10) * 1.25;
-  const maxDist = Math.max(...distances, 10) * 1.25;
+  const getSpeedY = (val: number) => {
+    const clamped = Math.min(val, maxSpeed);
+    return height - padding.bottom - (clamped / maxSpeed) * (height - padding.top - padding.bottom);
+  };
 
-  const getSpeedY = (val: number) =>
-    height - padding.bottom - (val / maxSpeed) * (height - padding.top - padding.bottom);
+  const getDistY = (val: number) =>
+    height - padding.bottom - (val / maxDist) * (height - padding.top - padding.bottom);
 
   return (
-    <div className="w-full bg-slate-900 rounded-lg p-3 text-white font-mono">
-      <div className="flex items-center justify-between text-[11px] pb-1.5 mb-1.5 border-b border-slate-800">
-        <span className="font-bold text-slate-100">
+    <div className="w-full bg-slate-50/70 border border-dark-border rounded-xl p-3.5 text-dark font-mono">
+      <div className="flex items-center justify-between text-xs pb-2 mb-2 border-b border-dark-border/60">
+        <span className="font-bold text-dark font-sans text-xs">
           Grafik Evaluasi Performa 5 Percobaan
         </span>
-        <div className="flex items-center gap-4 text-[10px]">
+        <div className="flex items-center gap-4 text-[11px] font-sans">
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-primary rounded-sm inline-block" /> Kecepatan Puncak ({speedUnit})
+            <span className="w-2.5 h-2.5 bg-[#800000] rounded-sm inline-block" /> Kecepatan Puncak ({speedUnit})
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-amber-400 rounded-sm inline-block" /> Deviasi Sasaran ({distUnit})
+            <span className="w-2.5 h-2.5 bg-[#FACC15] border border-amber-400 rounded-sm inline-block" /> Simpangan Sasaran ({distUnit})
           </span>
         </div>
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-36 overflow-visible">
+        {/* Garis Grid Horizontal */}
+        <line
+          x1={padding.left}
+          y1={getSpeedY(maxSpeed)}
+          x2={width - padding.right}
+          y2={getSpeedY(maxSpeed)}
+          stroke="#E2E8F0"
+          strokeWidth="1"
+          strokeDasharray="3 3"
+        />
+        <text
+          x={padding.left - 8}
+          y={getSpeedY(maxSpeed) + 3}
+          fill="#94A3B8"
+          fontSize="8.5"
+          textAnchor="end"
+        >
+          {maxSpeed}
+        </text>
+
         <line
           x1={padding.left}
           y1={getSpeedY(maxSpeed / 2)}
           x2={width - padding.right}
           y2={getSpeedY(maxSpeed / 2)}
-          stroke="#334155"
-          strokeDasharray="3 3"
+          stroke="#F1F5F9"
+          strokeWidth="1"
         />
         <text
-          x={padding.left - 6}
+          x={padding.left - 8}
           y={getSpeedY(maxSpeed / 2) + 3}
-          fill="#64748B"
+          fill="#94A3B8"
           fontSize="8.5"
           textAnchor="end"
         >
-          {(maxSpeed / 2).toFixed(1)}
+          {(maxSpeed / 2).toFixed(0)}
         </text>
 
         <line
@@ -103,12 +132,13 @@ const UnifiedPerformanceChart: React.FC<{
           y1={height - padding.bottom}
           x2={width - padding.right}
           y2={height - padding.bottom}
-          stroke="#475569"
+          stroke="#CBD5E1"
+          strokeWidth="1.5"
         />
         <text
-          x={padding.left - 6}
+          x={padding.left - 8}
           y={height - padding.bottom + 3}
-          fill="#64748B"
+          fill="#94A3B8"
           fontSize="8.5"
           textAnchor="end"
         >
@@ -120,76 +150,84 @@ const UnifiedPerformanceChart: React.FC<{
           const groupWidth = (width - padding.left - padding.right) / totalGroups;
           const startX = padding.left + idx * groupWidth;
 
-          const barWidth = 22;
+          const barWidth = 20;
           const speedX = startX + groupWidth / 2 - barWidth - 3;
           const distX = startX + groupWidth / 2 + 3;
 
-          const sY = getSpeedY(att?.peakSpeed || 0);
+          const spdVal = att?.peakSpeed || 0;
+          const isExtreme = spdVal > maxSpeed;
+          const sY = getSpeedY(spdVal);
           const sHeight = Math.max(2, height - padding.bottom - sY);
 
           const dVal = att?.distanceToTargetCm || 0;
-          const dY =
-            height - padding.bottom - (dVal / maxDist) * (height - padding.top - padding.bottom);
+          const dY = getDistY(dVal);
           const dHeight = Math.max(2, height - padding.bottom - dY);
 
           return (
             <g key={att?.attemptId || idx}>
+              {/* Batang Peak Speed (Maroon UPI) */}
               <rect
                 x={speedX}
                 y={sY}
                 width={barWidth}
-                height={att?.peakSpeed ? sHeight : 0}
-                rx="2"
-                fill="#800000"
+                height={spdVal > 0 ? sHeight : 0}
+                rx="3"
+                fill={isExtreme ? '#DC2626' : '#800000'}
               />
               {att?.peakSpeed !== null && att?.peakSpeed !== undefined && (
                 <text
                   x={speedX + barWidth / 2}
-                  y={sY - 3}
-                  fill="#FFFFFF"
+                  y={sY - 4}
+                  fill={isExtreme ? '#DC2626' : '#800000'}
                   fontSize="8.5"
                   textAnchor="middle"
                   fontWeight="bold"
                 >
-                  {att.peakSpeed.toFixed(1)}
+                  {isExtreme ? `! ${spdVal.toFixed(1)}` : spdVal.toFixed(1)}
                 </text>
               )}
 
+              {/* Batang Simpangan Sasaran (Kuning Gold UPI) */}
               <rect
                 x={distX}
                 y={dY}
                 width={barWidth}
-                height={att?.distanceToTargetCm ? dHeight : 0}
-                rx="2"
-                fill="#F59E0B"
+                height={dVal > 0 ? dHeight : 0}
+                rx="3"
+                fill="#FACC15"
+                stroke="#EAB308"
+                strokeWidth="1"
               />
               {att?.distanceToTargetCm !== null && att?.distanceToTargetCm !== undefined && (
                 <text
                   x={distX + barWidth / 2}
-                  y={dY - 3}
-                  fill="#FDE68A"
+                  y={dY - 4}
+                  fill="#B45309"
                   fontSize="8.5"
                   textAnchor="middle"
                   fontWeight="bold"
                 >
-                  {att.distanceToTargetCm.toFixed(1)}
+                  {dVal.toFixed(1)}
                 </text>
               )}
 
+              {/* Label Nomor Percobaan */}
               <text
                 x={startX + groupWidth / 2}
-                y={height - 14}
-                fill="#F1F5F9"
+                y={height - 18}
+                fill="#475569"
                 fontSize="9.5"
                 textAnchor="middle"
                 fontWeight="bold"
               >
                 P#{att?.attemptNumber || idx + 1}
               </text>
+
+              {/* Status Akurasi */}
               <text
                 x={startX + groupWidth / 2}
-                y={height - 3}
-                fill={att?.status === 'HIT' ? '#34D399' : att?.status === 'MISS' ? '#F87171' : '#94A3B8'}
+                y={height - 6}
+                fill={att?.status === 'HIT' ? '#059669' : att?.status === 'MISS' ? '#DC2626' : '#94A3B8'}
                 fontSize="8"
                 textAnchor="middle"
                 fontWeight="bold"
@@ -259,11 +297,12 @@ export const AnalysisReportPage: React.FC = () => {
 
   const { session, athlete, summary, target } = report;
   const isCalibrated = summary?.isCalibrated ?? false;
-  const speedUnit = summary?.speedUnit || 'px/s';
+  const speedUnit = summary?.speedUnit || 'm/s';
   const distUnit = isCalibrated ? 'cm' : 'px';
-  const athleteDisplayName = athlete?.name || (session as any)?.athleteName || 'Muhammad Ahdan Haqqin';
-  const athleteCodeDisplay = athlete?.athleteCode || (session as any)?.athleteCode || 'PS-UPI-001';
-  const dominantLegDisplay = athlete?.dominantLeg || session?.kickingLeg || 'Kanan';
+  const athleteDisplayName = athlete?.name || (session as any)?.athleteName || '-';
+  const athleteCodeDisplay = athlete?.athleteCode || (session as any)?.athleteCode || '-';
+  // Menggunakan label kaki yang cedera untuk riset biomekanika pasca-cedera
+  const injuredLegDisplay = athlete?.injuredLeg || (session as any)?.injuredLeg || session?.kickingLeg || 'Kanan';
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4 pb-8 font-sans text-dark print:p-0 print:m-0 print:max-w-none">
@@ -338,8 +377,8 @@ export const AnalysisReportPage: React.FC = () => {
               <span className="col-span-2 font-mono text-dark">: {athleteCodeDisplay}</span>
             </div>
             <div className="grid grid-cols-3 gap-1">
-              <span className="text-dark-secondary">Kaki Dominan</span>
-              <span className="col-span-2 text-dark">: {dominantLegDisplay}</span>
+              <span className="text-dark-secondary">Kaki yang Cedera</span>
+              <span className="col-span-2 font-semibold text-[#800000]">: {injuredLegDisplay}</span>
             </div>
           </div>
 
@@ -459,7 +498,7 @@ export const AnalysisReportPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 5. GRAFIK TERPADU */}
+        {/* 5. GRAFIK CETAK TERPADU (SPORT LIGHT ACADEMIC) */}
         {summary && (
           <UnifiedPerformanceChart
             attempts={summary.attempts}
@@ -555,7 +594,7 @@ export const AnalysisReportPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 8. FOOTER DENGAN IDENTITAS SILAT MOTION */}
+        {/* 8. FOOTER RESMI SILAT MOTION */}
         <div className="border-t border-dark-border pt-1.5 flex items-center justify-between text-[9px] text-dark-secondary font-mono">
           <span>SILAT MOTION • Versi Laporan {report.reportVersion}</span>
           <span>Dicetak: {new Date().toLocaleString('id-ID')}</span>
