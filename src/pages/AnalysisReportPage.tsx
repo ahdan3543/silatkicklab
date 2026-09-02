@@ -16,18 +16,33 @@ import { AnalysisReport } from '../types/report';
 import { formatDate } from '../utils/formatters';
 import { MergedAttemptResult } from '../services/result/sessionSummaryEngine';
 
-// Logo UPI Vektor Resmi (100% Aman & Tidak Bergantung URL/Koneksi Luar)
-const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) => (
-  <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="48" fill="#800000" stroke="#F59E0B" strokeWidth="3" />
-    <circle cx="50" cy="50" r="38" fill="#FFFFFF" />
-    {/* Obor & Bunga Khas Lambang UPI */}
-    <path d="M50 16 L58 34 L78 36 L64 50 L68 70 L50 60 L32 70 L36 50 L22 36 L42 34 Z" fill="#800000" />
-    <circle cx="50" cy="50" r="13" fill="#F59E0B" />
-    <circle cx="50" cy="50" r="9" fill="#800000" />
-    <text x="50" y="86" fontSize="9" fontWeight="900" fill="#FFFFFF" textAnchor="middle" fontFamily="sans-serif">UPI</text>
-  </svg>
-);
+// Logo UPI Resmi dari Google Drive dengan Fallback Vektor
+const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) => {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="48" fill="#800000" stroke="#F59E0B" strokeWidth="3" />
+        <circle cx="50" cy="50" r="38" fill="#FFFFFF" />
+        <path d="M50 16 L58 34 L78 36 L64 50 L68 70 L50 60 L32 70 L36 50 L22 36 L42 34 Z" fill="#800000" />
+        <circle cx="50" cy="50" r="13" fill="#F59E0B" />
+        <circle cx="50" cy="50" r="9" fill="#800000" />
+        <text x="50" y="86" fontSize="9" fontWeight="900" fill="#FFFFFF" textAnchor="middle" fontFamily="sans-serif">UPI</text>
+      </svg>
+    );
+  }
+
+  return (
+    <img
+      src="https://lh3.googleusercontent.com/d/196_EpzcqTAhpRq7lb-e3dITxelXnpxmR"
+      alt="Logo Universitas Pendidikan Indonesia"
+      onError={() => setHasError(true)}
+      className={`${className} object-contain shrink-0`}
+      loading="eager"
+    />
+  );
+};
 
 // Komponen Grafik Ringkas Terpadu
 const UnifiedPerformanceChart: React.FC<{
