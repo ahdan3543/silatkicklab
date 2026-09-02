@@ -20,7 +20,7 @@ export const mockAthletes: Athlete[] = [
   {
     id: 'ath-002',
     athleteCode: 'PS-UPI-002',
-    name: 'Siti Nurhaliza',
+    name: 'Muhammad Ahlan',
     gender: 'Perempuan',
     birthDate: '2003-09-20',
     category: 'Tanding Kelas A',
