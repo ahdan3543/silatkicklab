@@ -213,7 +213,7 @@ export const VideoAnalysisView: React.FC = () => {
     // Kalkulasi Akurasi
     const activeTarget = currentTarget !== undefined ? currentTarget : target;
     if (activeTarget) {
-      const acc = accuracyCalculationEngine.evaluateAttemptAccuracy(
+      const acc = (accuracyCalculationEngine.evaluateAttemptAccuracy as any)(
         attempt.video.id,
         attempt.id,
         sessionId,
@@ -318,12 +318,12 @@ export const VideoAnalysisView: React.FC = () => {
       triggerSpeedAndAccuracy(
         poseResult,
         athlete?.dominantLeg || 'Kanan',
-        speedResult.calibration,
+        speedResult.calibration || undefined,
         {
-          start: speedResult.kickStartFrame,
-          ext: speedResult.extensionStartFrame,
+          start: speedResult.kickStartFrame || 1,
+          ext: speedResult.extensionStartFrame || 1,
           impact: speedResult.impactFrame,
-          rec: speedResult.recoveryFrame,
+          rec: speedResult.recoveryFrame || 1,
         },
         newTarget
       );
@@ -337,7 +337,7 @@ export const VideoAnalysisView: React.FC = () => {
     const curImpact = field === 'impact' ? frameValue : speedResult.impactFrame || 1;
     const curRec = field === 'rec' ? frameValue : speedResult.recoveryFrame || 1;
 
-    triggerSpeedAndAccuracy(poseResult, athlete?.dominantLeg || 'Kanan', speedResult.calibration, {
+    triggerSpeedAndAccuracy(poseResult, athlete?.dominantLeg || 'Kanan', speedResult.calibration || undefined, {
       start: curStart,
       ext: curExt,
       impact: curImpact,
@@ -401,19 +401,19 @@ export const VideoAnalysisView: React.FC = () => {
   const isAtImpactFrame = currentFrameNum === (speedResult?.impactFrame || 0);
 
   return (
-    <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="space-y-4 md:space-y-6 pb-24 md:pb-8">
+      {/* Header Bar Responsif */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 md:p-0 rounded-xl md:rounded-none border md:border-none border-dark-border">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate(`/analisis/${sessionId}`)}
-            className="p-2 rounded-lg bg-white border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-50 transition-colors"
+            className="p-2 rounded-lg bg-white border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-50 transition-colors shrink-0"
           >
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-dark">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm md:text-lg font-bold text-dark truncate">
                 Analisis Akurasi & Kecepatan — Percobaan #{attempt.attemptNumber}
               </h2>
               {accuracyResult && (
@@ -422,27 +422,39 @@ export const VideoAnalysisView: React.FC = () => {
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-dark-secondary">
+            <p className="text-[11px] text-dark-secondary truncate">
               Sesi: {session.sessionCode} • Atlet: {athlete?.name || session.athleteName} (Kaki: {athlete?.dominantLeg || session.kickingLeg})
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" icon={<TargetIcon size={15} />} onClick={() => setIsTargetSetupOpen(true)}>
-            {target ? 'Ubah Posisi Target' : 'Atur Target Sasaran'}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none justify-center text-xs"
+            icon={<TargetIcon size={14} />}
+            onClick={() => setIsTargetSetupOpen(true)}
+          >
+            {target ? 'Ubah Target' : 'Atur Target'}
           </Button>
-          <Button variant="outline" icon={<Ruler size={15} />} onClick={() => setIsCalibrationOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none justify-center text-xs"
+            icon={<Ruler size={14} />}
+            onClick={() => setIsCalibrationOpen(true)}
+          >
             Kalibrasi Skala
           </Button>
         </div>
       </div>
 
       {/* Main Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
         {/* Kolom Kiri: Video & Canvas (7 Cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <Card className="p-4 bg-slate-950 border-slate-900 overflow-hidden">
+          <Card className="p-2 sm:p-4 bg-slate-950 border-slate-900 overflow-hidden">
             <div className="relative aspect-video rounded-lg overflow-hidden bg-black flex items-center justify-center">
               {videoUrl ? (
                 <>
@@ -488,9 +500,9 @@ export const VideoAnalysisView: React.FC = () => {
             </div>
 
             {/* Controls */}
-            <div className="mt-4 pt-3 border-t border-slate-800 text-white space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-mono text-slate-400">{formatDuration(currentTime)}</span>
+            <div className="mt-3 pt-3 border-t border-slate-800 text-white space-y-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">{formatDuration(currentTime)}</span>
                 <input
                   type="range"
                   min={0}
@@ -499,38 +511,39 @@ export const VideoAnalysisView: React.FC = () => {
                   value={currentTime}
                   onChange={handleSeek}
                   disabled={analysisStatus === 'processing'}
-                  className="flex-1 accent-accent h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                  className="flex-1 accent-accent h-2 sm:h-1.5 bg-slate-800 rounded-lg cursor-pointer"
                 />
-                <span className="text-[11px] font-mono text-slate-400">{formatDuration(duration)}</span>
+                <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">{formatDuration(duration)}</span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     onClick={handleTogglePlay}
                     disabled={analysisStatus === 'processing'}
-                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+                    className="p-2 sm:p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors"
+                    aria-label={isPlaying ? 'Jeda' : 'Putar'}
                   >
                     {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                   </button>
                   <button
                     onClick={() => handleFrameStep('prev')}
                     disabled={analysisStatus === 'processing' || isPlaying}
-                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
+                    className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
                   >
                     <ChevronLeft size={14} /> Frame
                   </button>
                   <button
                     onClick={() => handleFrameStep('next')}
                     disabled={analysisStatus === 'processing' || isPlaying}
-                    className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
+                    className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
                   >
                     Frame <ChevronRight size={14} />
                   </button>
                 </div>
 
-                <div className="text-[11px] text-slate-400 font-mono">
-                  Frame #{currentFrameNum} / {poseResult?.totalFrames || '-'} {isAtImpactFrame ? '● IMPACT FRAME' : ''}
+                <div className="text-[10px] sm:text-[11px] text-slate-400 font-mono">
+                  Frame #{currentFrameNum} / {poseResult?.totalFrames || '-'} {isAtImpactFrame ? '● IMPACT' : ''}
                 </div>
               </div>
             </div>
@@ -555,51 +568,51 @@ export const VideoAnalysisView: React.FC = () => {
             {accuracyResult && target ? (
               <div className="space-y-4">
                 <div
-                  className={`p-4 rounded-xl border text-white shadow-subtle ${
+                  className={`p-3.5 sm:p-4 rounded-xl border text-white shadow-subtle ${
                     accuracyResult.finalResult === 'hit'
                       ? 'bg-gradient-to-r from-emerald-800 to-emerald-600 border-emerald-500'
                       : 'bg-gradient-to-r from-primary-dark to-primary border-primary-light'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold tracking-wider uppercase opacity-90">
+                    <span className="text-[10px] sm:text-[11px] font-semibold tracking-wider uppercase opacity-90">
                       Status Evaluasi Akurasi
                     </span>
-                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded font-mono">
+                    <span className="text-[10px] sm:text-xs bg-white/20 px-2 py-0.5 rounded font-mono">
                       {accuracyResult.evaluationMethod === 'manual-corrected' ? 'Manual Override' : 'Otomatis'}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-3 mt-2">
                     {accuracyResult.finalResult === 'hit' ? (
-                      <CheckCircle2 size={32} className="text-emerald-300" />
+                      <CheckCircle2 size={30} className="text-emerald-300 shrink-0" />
                     ) : (
-                      <XCircle size={32} className="text-amber-300" />
+                      <XCircle size={30} className="text-amber-300 shrink-0" />
                     )}
                     <div>
-                      <h3 className="text-2xl font-bold">
+                      <h3 className="text-xl sm:text-2xl font-bold">
                         {accuracyResult.finalResult === 'hit' ? 'SASARAN TEPAT (HIT)' : 'SASARAN MELESET (MISS)'}
                       </h3>
                       <p className="text-xs opacity-90 mt-0.5">
-                        Deviasi dari pusat sasaran: <b>{accuracyResult.distanceCentimeters !== null ? `${accuracyResult.distanceCentimeters.toFixed(1)} cm` : `${accuracyResult.distancePixels?.toFixed(1)} px`}</b>
+                        Deviasi dari pusat: <b>{accuracyResult.distanceCentimeters !== null && accuracyResult.distanceCentimeters !== undefined ? `${accuracyResult.distanceCentimeters.toFixed(1)} cm` : `${accuracyResult.distancePixels?.toFixed(1)} px`}</b>
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-slate-50 border border-dark-border rounded-lg">
-                    <span className="text-dark-secondary block">Jarak Deviasi Impak</span>
-                    <span className="text-base font-bold text-dark font-mono mt-0.5 block">
-                      {accuracyResult.distanceCentimeters !== null
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-2.5 sm:p-3 bg-slate-50 border border-dark-border rounded-lg">
+                    <span className="text-dark-secondary block text-[11px]">Jarak Deviasi Impak</span>
+                    <span className="text-sm sm:text-base font-bold text-dark font-mono mt-0.5 block">
+                      {accuracyResult.distanceCentimeters !== null && accuracyResult.distanceCentimeters !== undefined
                         ? `${accuracyResult.distanceCentimeters.toFixed(1)} cm`
                         : `${accuracyResult.distancePixels?.toFixed(1)} px`}
                     </span>
                   </div>
 
-                  <div className="p-3 bg-slate-50 border border-dark-border rounded-lg">
-                    <span className="text-dark-secondary block">Batas Radius Sasaran</span>
-                    <span className="text-base font-bold text-dark font-mono mt-0.5 block">
+                  <div className="p-2.5 sm:p-3 bg-slate-50 border border-dark-border rounded-lg">
+                    <span className="text-dark-secondary block text-[11px]">Batas Radius Sasaran</span>
+                    <span className="text-sm sm:text-base font-bold text-dark font-mono mt-0.5 block">
                       {(target.radiusNormalized * 100).toFixed(1)}% Frame
                     </span>
                   </div>
@@ -634,7 +647,7 @@ export const VideoAnalysisView: React.FC = () => {
                     max={Math.max(1, (speedResult.impactFrame || 2) - 1)}
                     value={speedResult.kickStartFrame || 1}
                     onChange={(e) => handlePhaseChange('start', parseInt(e.target.value))}
-                    className="w-full accent-primary h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                    className="w-full accent-primary h-2 bg-slate-200 rounded-lg cursor-pointer"
                   />
                 </div>
 
@@ -649,7 +662,7 @@ export const VideoAnalysisView: React.FC = () => {
                     max={poseResult?.totalFrames || 100}
                     value={speedResult.impactFrame || 1}
                     onChange={(e) => handlePhaseChange('impact', parseInt(e.target.value))}
-                    className="w-full accent-accent h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                    className="w-full accent-accent h-2 bg-slate-200 rounded-lg cursor-pointer"
                   />
                 </div>
               </div>
@@ -688,14 +701,14 @@ export const VideoAnalysisView: React.FC = () => {
         onSaveCalibration={(calib) => {
           if (poseResult && speedResult) {
             triggerSpeedAndAccuracy(poseResult, athlete?.dominantLeg || 'Kanan', calib, {
-              start: speedResult.kickStartFrame,
-              ext: speedResult.extensionStartFrame,
+              start: speedResult.kickStartFrame || 1,
+              ext: speedResult.extensionStartFrame || 1,
               impact: speedResult.impactFrame,
-              rec: speedResult.recoveryFrame,
+              rec: speedResult.recoveryFrame || 1,
             });
           }
         }}
-        existingCalibration={speedResult?.calibration}
+        existingCalibration={speedResult?.calibration || undefined}
       />
     </div>
   );

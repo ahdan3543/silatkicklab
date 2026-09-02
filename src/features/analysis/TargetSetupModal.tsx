@@ -22,8 +22,10 @@ interface TargetSetupModalProps {
   videoElement: HTMLVideoElement | null;
   videoWidth: number;
   videoHeight: number;
-  onSaveTarget: (target: TargetDefinition) => void;
+  onSaveTarget?: (target: TargetDefinition) => void;
+  onSave?: (target: TargetDefinition) => void;
   existingTarget?: TargetDefinition | null;
+  initialTarget?: TargetDefinition | null;
 }
 
 export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
@@ -34,14 +36,18 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
   videoWidth,
   videoHeight,
   onSaveTarget,
+  onSave,
   existingTarget,
+  initialTarget,
 }) => {
+  const activeTarget = existingTarget || initialTarget;
+
   const [center, setCenter] = useState<{ x: number; y: number }>({
-    x: existingTarget?.centerX || 0.7,
-    y: existingTarget?.centerY || 0.45,
+    x: activeTarget?.centerX || 0.7,
+    y: activeTarget?.centerY || 0.45,
   });
   const [radiusNorm, setRadiusNorm] = useState<number>(
-    existingTarget?.radiusNormalized || DEFAULT_TARGET_RADIUS_NORMALIZED
+    activeTarget?.radiusNormalized || DEFAULT_TARGET_RADIUS_NORMALIZED
   );
 
   // Zoom & Pan States
@@ -72,12 +78,12 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
     if (isOpen) {
       setZoomLevel(1);
       setPanOffset({ x: 0, y: 0 });
-      if (existingTarget) {
-        setCenter({ x: existingTarget.centerX, y: existingTarget.centerY });
-        setRadiusNorm(existingTarget.radiusNormalized);
+      if (activeTarget) {
+        setCenter({ x: activeTarget.centerX, y: activeTarget.centerY });
+        setRadiusNorm(activeTarget.radiusNormalized);
       }
     }
-  }, [isOpen, existingTarget]);
+  }, [isOpen, activeTarget]);
 
   // Handler Zoom Menggunakan Scroll Wheel Mouse
   const handleWheelZoom = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -93,9 +99,8 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
     });
   };
 
-  // Mouse Drag untuk Menggeser (Pan)
+  // Mouse & Touch Drag untuk Menggeser (Pan)
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Tombol kanan atau klik tengah, atau saat kondisi zoom > 1
     if (e.button === 2 || e.button === 1 || zoomLevel > 1) {
       setIsDraggingPan(true);
       setHasMovedDuringClick(false);
@@ -114,14 +119,12 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Jika hanya klik kiri biasa (bukan drag pan), tempatkan titik target
     if (e.button === 0 && !hasMovedDuringClick && viewportRef.current) {
       const rect = viewportRef.current.getBoundingClientRect();
 
       const clickScreenX = (e.clientX - rect.left) / rect.width;
       const clickScreenY = (e.clientY - rect.top) / rect.height;
 
-      // Konversi posisi dari zoom & pan ke koordinat asli (0 - 1)
       const originalX = (clickScreenX - 0.5 - panOffset.x / rect.width) / zoomLevel + 0.5;
       const originalY = (clickScreenY - 0.5 - panOffset.y / rect.height) / zoomLevel + 0.5;
 
@@ -133,9 +136,49 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
     setIsDraggingPan(false);
   };
 
-  // Nudge Mikro Menggunakan Tombol Panah
+  // Touch Event Khusus Layar HP
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && zoomLevel > 1) {
+      const touch = e.touches[0];
+      setIsDraggingPan(true);
+      setHasMovedDuringClick(false);
+      setStartDrag({ x: touch.clientX - panOffset.x, y: touch.clientY - panOffset.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isDraggingPan && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setHasMovedDuringClick(true);
+      setPanOffset({
+        x: touch.clientX - startDrag.x,
+        y: touch.clientY - startDrag.y,
+      });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!hasMovedDuringClick && viewportRef.current && e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const rect = viewportRef.current.getBoundingClientRect();
+
+      const clickScreenX = (touch.clientX - rect.left) / rect.width;
+      const clickScreenY = (touch.clientY - rect.top) / rect.height;
+
+      const originalX = (clickScreenX - 0.5 - panOffset.x / rect.width) / zoomLevel + 0.5;
+      const originalY = (clickScreenY - 0.5 - panOffset.y / rect.height) / zoomLevel + 0.5;
+
+      setCenter({
+        x: Math.max(0, Math.min(1, originalX)),
+        y: Math.max(0, Math.min(1, originalY)),
+      });
+    }
+    setIsDraggingPan(false);
+  };
+
+  // Nudge Mikro Menggunakan Tombol Panah (Disesuaikan responsivitasnya)
   const handleNudge = (dx: number, dy: number) => {
-    const step = 0.002;
+    const step = 0.005;
     setCenter((prev) => ({
       x: Math.max(0, Math.min(1, prev.x + dx * step)),
       y: Math.max(0, Math.min(1, prev.y + dy * step)),
@@ -144,16 +187,17 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
 
   const handleSave = () => {
     const targetDef: TargetDefinition = {
-      id: existingTarget?.id || `target-${Date.now()}`,
+      id: activeTarget?.id || `target-${Date.now()}`,
       sessionId,
       type: 'circle',
       centerX: center.x,
       centerY: center.y,
       radiusNormalized: radiusNorm,
-      createdAt: existingTarget?.createdAt || new Date().toISOString(),
+      createdAt: activeTarget?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    onSaveTarget(targetDef);
+    if (onSaveTarget) onSaveTarget(targetDef);
+    if (onSave) onSave(targetDef);
     onClose();
   };
 
@@ -161,23 +205,24 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Atur Target Sasaran Tendangan Sesi (Presisi Tinggi)"
+      title="Atur Target Sasaran Tendangan (Presisi)"
       footer={
-        <>
-          <Button variant="outline" type="button" onClick={onClose}>
+        <div className="flex items-center justify-between w-full">
+          <Button variant="outline" size="sm" type="button" onClick={onClose}>
             Batal
           </Button>
-          <Button type="button" onClick={handleSave} icon={<Check size={16} />}>
-            Simpan Target Sesi
+          <Button size="sm" type="button" onClick={handleSave} icon={<Check size={16} />}>
+            Simpan Target
           </Button>
-        </>
+        </div>
       }
     >
-      <div className="space-y-4 text-xs max-w-2xl mx-auto">
-        {/* Toolbar Zoom & Nudge */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50 border border-dark-border rounded-lg">
+      <div className="space-y-3 sm:space-y-4 text-xs max-w-2xl mx-auto">
+        {/* Toolbar Zoom & Nudge Responsif */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 sm:p-2.5 bg-slate-50 border border-dark-border rounded-lg">
+          {/* Kontrol Zoom */}
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-dark mr-1">Zoom:</span>
+            <span className="font-semibold text-dark text-[11px]">Zoom:</span>
             <button
               type="button"
               onClick={() => setZoomLevel((z) => Math.min(5, z + 0.5))}
@@ -185,7 +230,7 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
               className="p-1.5 rounded-md bg-white border border-dark-border hover:bg-slate-100 text-dark disabled:opacity-40"
               title="Perbesar"
             >
-              <ZoomIn size={15} />
+              <ZoomIn size={14} />
             </button>
             <button
               type="button"
@@ -200,7 +245,7 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
               className="p-1.5 rounded-md bg-white border border-dark-border hover:bg-slate-100 text-dark disabled:opacity-40"
               title="Perkecil"
             >
-              <ZoomOut size={15} />
+              <ZoomOut size={14} />
             </button>
             <button
               type="button"
@@ -211,47 +256,48 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
               className="p-1.5 rounded-md bg-white border border-dark-border hover:bg-slate-100 text-dark"
               title="Reset Zoom"
             >
-              <RotateCcw size={15} />
+              <RotateCcw size={14} />
             </button>
-            <span className="font-mono font-bold text-primary ml-1">{zoomLevel.toFixed(1)}x</span>
+            <span className="font-mono font-bold text-primary ml-1 text-xs">{zoomLevel.toFixed(1)}x</span>
           </div>
 
+          {/* D-Pad Penggeser Titik (Sangat berguna di layar sentuh HP) */}
           <div className="flex items-center gap-1">
-            <span className="font-semibold text-dark mr-1 text-[11px]">Geser Titik:</span>
+            <span className="font-semibold text-dark text-[11px] mr-1">Geser Titik:</span>
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => handleNudge(-1, 0)}
-                className="p-1 rounded bg-white border border-dark-border hover:bg-slate-100"
+                className="p-1.5 sm:p-1 rounded bg-white border border-dark-border hover:bg-slate-100 active:bg-slate-200"
                 title="Geser Kiri"
               >
-                <ChevronLeft size={13} />
+                <ChevronLeft size={14} />
               </button>
               <div className="flex flex-col gap-0.5">
                 <button
                   type="button"
                   onClick={() => handleNudge(0, -1)}
-                  className="p-1 rounded bg-white border border-dark-border hover:bg-slate-100"
+                  className="p-1.5 sm:p-1 rounded bg-white border border-dark-border hover:bg-slate-100 active:bg-slate-200"
                   title="Geser Atas"
                 >
-                  <ChevronUp size={13} />
+                  <ChevronUp size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={() => handleNudge(0, 1)}
-                  className="p-1 rounded bg-white border border-dark-border hover:bg-slate-100"
+                  className="p-1.5 sm:p-1 rounded bg-white border border-dark-border hover:bg-slate-100 active:bg-slate-200"
                   title="Geser Bawah"
                 >
-                  <ChevronDown size={13} />
+                  <ChevronDown size={14} />
                 </button>
               </div>
               <button
                 type="button"
                 onClick={() => handleNudge(1, 0)}
-                className="p-1 rounded bg-white border border-dark-border hover:bg-slate-100"
+                className="p-1.5 sm:p-1 rounded bg-white border border-dark-border hover:bg-slate-100 active:bg-slate-200"
                 title="Geser Kanan"
               >
-                <ChevronRight size={13} />
+                <ChevronRight size={14} />
               </button>
             </div>
           </div>
@@ -259,7 +305,7 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
 
         {/* Slider Radius */}
         <div className="space-y-1">
-          <div className="flex justify-between">
+          <div className="flex justify-between text-xs">
             <span className="font-semibold text-dark">Ukuran Radius Sasaran:</span>
             <span className="font-mono font-bold text-primary">{(radiusNorm * 100).toFixed(1)}% Frame</span>
           </div>
@@ -270,19 +316,22 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
             step={0.002}
             value={radiusNorm}
             onChange={(e) => setRadiusNorm(parseFloat(e.target.value))}
-            className="w-full accent-primary h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+            className="w-full accent-primary h-2 bg-slate-200 rounded-lg cursor-pointer"
           />
         </div>
 
-        {/* Viewport Interaktif Zoom Mouse & Pan */}
+        {/* Viewport Interaktif Zoom & Touch/Mouse Pan */}
         <div
           ref={viewportRef}
           onWheel={handleWheelZoom}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => e.preventDefault()}
-          className={`relative aspect-video bg-black rounded-xl overflow-hidden border border-dark-border select-none shadow-inner ${
+          className={`relative aspect-video bg-black rounded-xl overflow-hidden border border-dark-border select-none shadow-inner touch-none ${
             isDraggingPan ? 'cursor-grabbing' : zoomLevel > 1 ? 'cursor-grab' : 'cursor-crosshair'
           }`}
         >
@@ -325,7 +374,7 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
               <line
                 x1={`${center.x * 100}%`}
                 y1={`${(center.y - radiusNorm * 0.5) * 100}%`}
-                x2={`${(center.x + radiusNorm * 0.5) * 100}%`}
+                x2={`${center.x * 100}%`}
                 y2={`${(center.y + radiusNorm * 0.5) * 100}%`}
                 stroke="#800000"
                 strokeWidth={1.5 / zoomLevel}
@@ -334,13 +383,13 @@ export const TargetSetupModal: React.FC<TargetSetupModalProps> = ({
           </div>
         </div>
 
-        {/* Petunjuk Mouse */}
-        <div className="flex items-center justify-between text-dark-secondary text-[11px] px-1">
+        {/* Petunjuk Interaksi */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-dark-secondary text-[10px] sm:text-[11px] gap-1 px-1">
           <span className="flex items-center gap-1.5">
-            <MousePointer size={13} className="text-primary" />
-            <b>Scroll Mouse:</b> Zoom in/out • <b>Klik Kiri:</b> Taruh Titik • <b>Drag:</b> Geser Layar
+            <MousePointer size={12} className="text-primary shrink-0" />
+            <span><b>Sentuh/Klik:</b> Taruh Titik • <b>Tombol Panah:</b> Geser Presisi</span>
           </span>
-          <span className="font-mono text-dark">
+          <span className="font-mono text-dark font-semibold">
             X: {(center.x * 100).toFixed(1)}% | Y: {(center.y * 100).toFixed(1)}%
           </span>
         </div>

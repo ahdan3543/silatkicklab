@@ -56,10 +56,10 @@ const InlineSpeedChart: React.FC<{ attempts: MergedAttemptResult[]; speedUnit: s
     height - padding.bottom - (val / maxVal) * (height - padding.top - padding.bottom);
 
   return (
-    <div className="w-full bg-slate-900 rounded-xl p-4 text-white">
+    <div className="w-full bg-slate-900 rounded-xl p-3.5 sm:p-4 text-white">
       <div className="flex items-center justify-between text-xs mb-3 font-mono text-slate-400">
-        <span className="font-semibold text-slate-200">Komparasi Kecepatan per Percobaan</span>
-        <span>Satuan: <b className="text-accent">{speedUnit}</b></span>
+        <span className="font-semibold text-slate-200 text-[11px] sm:text-xs">Komparasi Kecepatan per Percobaan</span>
+        <span className="text-[10px] sm:text-xs">Satuan: <b className="text-accent">{speedUnit}</b></span>
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-32 overflow-visible">
@@ -146,7 +146,7 @@ const InlineSpeedChart: React.FC<{ attempts: MergedAttemptResult[]; speedUnit: s
         })}
       </svg>
 
-      <div className="flex items-center justify-center gap-6 text-[11px] font-mono text-slate-300 mt-2 border-t border-slate-800/80 pt-2">
+      <div className="flex items-center justify-center gap-4 sm:gap-6 text-[10px] sm:text-[11px] font-mono text-slate-300 mt-2 border-t border-slate-800/80 pt-2">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 bg-primary rounded-sm inline-block" /> Kecepatan Puncak (Peak)
         </span>
@@ -249,45 +249,47 @@ export const SessionResultPage: React.FC = () => {
     : [];
 
   return (
-    <div id="analysis-report" className="space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div id="analysis-report" className="space-y-4 md:space-y-6 pb-24 md:pb-8">
+      {/* Header Bar Mobile & Desktop */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 md:p-0 rounded-xl md:rounded-none border md:border-none border-dark-border">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate(`/analisis/${session.id}`)}
-            className="p-2 rounded-lg bg-white border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-50 transition-colors"
+            className="p-2 rounded-lg bg-white border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-50 transition-colors shrink-0"
           >
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-dark">Hasil Analisis & Komparasi 5 Percobaan</h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm md:text-lg font-bold text-dark truncate">Hasil Analisis & Komparasi 5 Percobaan</h2>
               <Badge variant={summary && summary.validAttempts === 5 ? 'success' : 'neutral'}>
                 {summary ? `${summary.validAttempts} / 5 Valid Attempts` : '-'}
               </Badge>
             </div>
-            <p className="text-xs text-dark-secondary">
+            <p className="text-[11px] text-dark-secondary truncate">
               Sesi: {session.sessionCode} • Atlet: {athlete?.name || session.athleteName} (Kaki: {session.kickingLeg})
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
-            icon={<ArrowUpRight size={15} />}
+            className="flex-1 sm:flex-none justify-center text-xs"
+            icon={<ArrowUpRight size={14} />}
             onClick={() => navigate(`/analisis/${session.id}`)}
           >
-            Manajemen Video
+            Kelola Video
           </Button>
           <Button
             variant="primary"
             size="sm"
-            icon={<FileText size={15} />}
+            className="flex-1 sm:flex-none justify-center text-xs"
+            icon={<FileText size={14} />}
             onClick={() => navigate(`/analisis/${session.id}/laporan`)}
           >
-            Lihat Laporan Penelitian (Report)
+            Laporan
           </Button>
         </div>
       </div>
@@ -296,85 +298,164 @@ export const SessionResultPage: React.FC = () => {
       <ValidationPanel qualityReport={qualityReport} />
 
       {/* 4 Kartu Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="flex flex-col justify-between">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <Card className="flex flex-col justify-between p-3.5 sm:p-4">
           <div>
-            <span className="text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
-              Akurasi Sasaran (Hit Rate)
+            <span className="text-[10px] sm:text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
+              Akurasi (Hit Rate)
             </span>
-            <div className="mt-1 flex items-baseline gap-2">
-              <h3 className="text-3xl font-bold text-dark font-mono">
+            <div className="mt-1 flex items-baseline gap-1.5 sm:gap-2">
+              <h3 className="text-xl sm:text-3xl font-bold text-dark font-mono">
                 {summary?.accuracyPercentage !== null && summary?.accuracyPercentage !== undefined
                   ? `${summary.accuracyPercentage.toFixed(1)}%`
                   : '-'}
               </h3>
-              <span className="text-xs font-medium text-emerald-600">
-                {summary ? `${summary.hitsCount} / ${summary.validAttempts} HIT` : ''}
+              <span className="text-[10px] sm:text-xs font-medium text-emerald-600">
+                {summary ? `${summary.hitsCount}/${summary.validAttempts} HIT` : ''}
               </span>
             </div>
           </div>
-          <p className="text-[11px] text-dark-secondary mt-2 pt-2 border-t border-dark-border/60">
-            {summary?.invalidAttempts ? `${summary.invalidAttempts} percobaan tidak valid` : 'Seluruh data valid'}
+          <p className="text-[10px] sm:text-[11px] text-dark-secondary mt-1.5 pt-1.5 border-t border-dark-border/60">
+            {summary?.invalidAttempts ? `${summary.invalidAttempts} invalid` : 'Seluruh data valid'}
           </p>
         </Card>
 
-        <Card className="flex flex-col justify-between">
+        <Card className="flex flex-col justify-between p-3.5 sm:p-4">
           <div>
-            <span className="text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
-              Kecepatan Puncak Sesi
+            <span className="text-[10px] sm:text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
+              Peak Speed Sesi
             </span>
             <div className="mt-1">
-              <h3 className="text-3xl font-bold text-primary font-mono">
+              <h3 className="text-xl sm:text-3xl font-bold text-primary font-mono">
                 {summary?.sessionPeakSpeed !== null && summary?.sessionPeakSpeed !== undefined
                   ? `${summary.sessionPeakSpeed.toFixed(2)} ${summary.speedUnit}`
                   : '-'}
               </h3>
             </div>
           </div>
-          <p className="text-[11px] text-dark-secondary mt-2 pt-2 border-t border-dark-border/60">
-            {summary?.isCalibrated ? 'Nilai tertinggi dari percobaan valid' : 'Belum dikalibrasi (px/s)'}
+          <p className="text-[10px] sm:text-[11px] text-dark-secondary mt-1.5 pt-1.5 border-t border-dark-border/60 truncate">
+            {summary?.isCalibrated ? 'Nilai puncak valid' : 'Belum kalibrasi (px/s)'}
           </p>
         </Card>
 
-        <Card className="flex flex-col justify-between">
+        <Card className="flex flex-col justify-between p-3.5 sm:p-4">
           <div>
-            <span className="text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
-              Kecepatan Rata-Rata Sesi
+            <span className="text-[10px] sm:text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
+              Avg Speed Sesi
             </span>
             <div className="mt-1">
-              <h3 className="text-3xl font-bold text-dark font-mono">
+              <h3 className="text-xl sm:text-3xl font-bold text-dark font-mono">
                 {summary?.sessionAverageSpeed !== null && summary?.sessionAverageSpeed !== undefined
                   ? `${summary.sessionAverageSpeed.toFixed(2)} ${summary.speedUnit}`
                   : '-'}
               </h3>
             </div>
           </div>
-          <p className="text-[11px] text-dark-secondary mt-2 pt-2 border-t border-dark-border/60">
-            Rata-rata kecepatan fase ekstensi
+          <p className="text-[10px] sm:text-[11px] text-dark-secondary mt-1.5 pt-1.5 border-t border-dark-border/60">
+            Fase ekstensi kaki
           </p>
         </Card>
 
-        <Card className="flex flex-col justify-between">
+        <Card className="flex flex-col justify-between p-3.5 sm:p-4">
           <div>
-            <span className="text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
-              Durasi Tendangan Rata-Rata
+            <span className="text-[10px] sm:text-xs font-semibold text-dark-secondary uppercase tracking-wider block">
+              Durasi Rata-Rata
             </span>
             <div className="mt-1">
-              <h3 className="text-3xl font-bold text-dark font-mono">
+              <h3 className="text-xl sm:text-3xl font-bold text-dark font-mono">
                 {summary?.sessionAverageDuration !== null && summary?.sessionAverageDuration !== undefined
                   ? `${summary.sessionAverageDuration.toFixed(2)} s`
                   : '-'}
               </h3>
             </div>
           </div>
-          <p className="text-[11px] text-dark-secondary mt-2 pt-2 border-t border-dark-border/60">
-            Waktu reaksi Start ke Impact
+          <p className="text-[10px] sm:text-[11px] text-dark-secondary mt-1.5 pt-1.5 border-t border-dark-border/60">
+            Start ke Impact
           </p>
         </Card>
       </div>
 
-      {/* Tabel 5 Percobaan */}
-      <Card title="Rekapitulasi 5 Percobaan Tendangan Depan" subtitle="Perbandingan Parameter Kecepatan dan Akurasi">
+      {/* 1. VERSI MOBILE: CARD LIST REKAP 5 PERCOBAAN (Layar HP < md) */}
+      <div className="block md:hidden space-y-2.5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-dark px-1">
+          Rekapitulasi 5 Percobaan
+        </h3>
+
+        {summary?.attempts.map((att) => {
+          const isHit = att.status === 'HIT';
+          const isMiss = att.status === 'MISS';
+          const isInvalid = att.status === 'INVALID';
+
+          return (
+            <div
+              key={att.attemptId}
+              className="bg-white border border-dark-border rounded-xl p-3 shadow-xs space-y-2 text-xs"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="font-bold text-dark">Percobaan #{att.attemptNumber}</span>
+
+                <div className="flex items-center gap-1.5">
+                  {isHit && (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold text-[10px]">
+                      <CheckCircle2 size={12} /> HIT
+                    </span>
+                  )}
+                  {isMiss && (
+                    <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">
+                      <XCircle size={12} /> MISS
+                    </span>
+                  )}
+                  {isInvalid && (
+                    <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-bold text-[10px]">
+                      <AlertCircle size={12} /> INVALID
+                    </span>
+                  )}
+                  {att.status === 'BELUM_DIANALISIS' && (
+                    <span className="text-[10px] text-slate-400">Belum Dianalisis</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 text-center font-mono text-[11px]">
+                <div className="bg-slate-50 p-1.5 rounded-lg">
+                  <span className="text-dark-secondary block text-[9px] font-sans">Durasi</span>
+                  <span className="font-semibold text-dark">
+                    {att.kickDuration ? `${att.kickDuration.toFixed(2)}s` : '-'}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-1.5 rounded-lg">
+                  <span className="text-dark-secondary block text-[9px] font-sans">Peak Speed</span>
+                  <span className="font-bold text-primary">
+                    {att.peakSpeed !== null ? `${att.peakSpeed.toFixed(1)}` : '-'}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-1.5 rounded-lg">
+                  <span className="text-dark-secondary block text-[9px] font-sans">Deviasi</span>
+                  <span className="font-semibold text-dark">
+                    {att.distanceToTargetCm !== null ? `${att.distanceToTargetCm.toFixed(1)}cm` : '-'}
+                  </span>
+                </div>
+              </div>
+
+              {att.hasVideo && (
+                <button
+                  onClick={() => navigate(`/analisis/${session.id}/attempt/${att.attemptId}`)}
+                  className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-dark font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-xs transition-colors"
+                >
+                  Review Percobaan <ArrowUpRight size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. VERSI DESKTOP: TABEL 5 PERCOBAAN (Layar >= md) */}
+      <Card
+        className="hidden md:block"
+        title="Rekapitulasi 5 Percobaan Tendangan Depan"
+        subtitle="Perbandingan Parameter Kecepatan dan Akurasi"
+      >
         <Table headers={['Percobaan', 'Durasi', 'Peak Speed', 'Avg Speed', 'Deviasi Target', 'Status', 'Metode', 'Aksi']}>
           {summary?.attempts.map((att) => {
             const isHit = att.status === 'HIT';
@@ -439,8 +520,8 @@ export const SessionResultPage: React.FC = () => {
         </Table>
       </Card>
 
-      {/* Grafik */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Grafik Komparasi */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {summary && (
           <InlineSpeedChart
             attempts={summary.attempts}

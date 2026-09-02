@@ -172,110 +172,118 @@ export const SessionDetailPage: React.FC = () => {
   const accuracyResultsList = Object.values(accuracyResults);
 
   return (
-    <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-8">
+      {/* Header Bar Mobile & Desktop */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 md:p-0 rounded-xl md:rounded-none border md:border-none border-dark-border">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate('/analisis')}
-            className="p-2.5 rounded-lg bg-white border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-50 transition-colors shadow-subtle"
+            className="p-2 rounded-lg bg-white border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-50 transition-colors shadow-subtle shrink-0"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-xl font-bold text-dark">{session.sessionCode}</h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base md:text-xl font-bold text-dark truncate">{session.sessionCode}</h2>
               <Badge variant={session.status === 'Selesai' ? 'success' : 'neutral'}>{session.status}</Badge>
             </div>
-            <p className="text-xs text-dark-secondary mt-0.5">
-              Monitoring Akurasi & Kecepatan 5 Percobaan Tendangan Depan Atlet
+            <p className="text-[11px] text-dark-secondary truncate">
+              Tendangan Depan • {athlete ? athlete.name : session.athleteName}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             variant="primary"
-            icon={<BarChart2 size={16} />}
+            size="sm"
+            className="flex-1 sm:flex-none justify-center text-xs"
+            icon={<BarChart2 size={14} />}
             onClick={() => navigate(`/hasil/${session.id}`)}
           >
-            Lihat Hasil & Komparasi 5 Percobaan
+            Hasil Komparasi
           </Button>
-          <Button variant="outline" icon={<TargetIcon size={16} />} onClick={() => setIsTargetModalOpen(true)}>
-            {target ? 'Ubah Target Sesi' : 'Tentukan Target Sesi'}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none justify-center text-xs"
+            icon={<TargetIcon size={14} />}
+            onClick={() => setIsTargetModalOpen(true)}
+          >
+            {target ? 'Target Siap' : 'Atur Target'}
           </Button>
         </div>
       </div>
 
       {/* Grid Informasi Atlet & Summary Akurasi */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <Card className="lg:col-span-2">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <Card className="md:col-span-2 p-3.5 md:p-4">
+          <div className="grid grid-cols-2 gap-2.5 text-xs">
             <div>
-              <span className="text-dark-secondary block flex items-center gap-1.5 mb-1">
-                <User size={14} /> Nama Atlet
+              <span className="text-dark-secondary flex items-center gap-1 text-[11px]">
+                <User size={12} /> Nama Atlet
               </span>
-              <span className="font-bold text-dark text-sm block">
+              <span className="font-bold text-dark truncate block mt-0.5">
                 {athlete ? athlete.name : session.athleteName}
               </span>
-              <span className="font-mono text-xs text-dark-secondary">
+              <span className="font-mono text-[10px] text-dark-secondary">
                 {athlete ? athlete.athleteCode : '-'}
               </span>
             </div>
 
             <div>
-              <span className="text-dark-secondary block flex items-center gap-1.5 mb-1">
-                <Calendar size={14} /> Tanggal Sesi
+              <span className="text-dark-secondary flex items-center gap-1 text-[11px]">
+                <Calendar size={12} /> Tanggal
               </span>
-              <span className="font-bold text-dark text-sm block">
+              <span className="font-bold text-dark block mt-0.5">
                 {formatDate(session.date)}
               </span>
             </div>
 
             <div>
-              <span className="text-dark-secondary block flex items-center gap-1.5 mb-1">
-                <Shield size={14} /> Kaki Uji
+              <span className="text-dark-secondary flex items-center gap-1 text-[11px]">
+                <Shield size={12} /> Kaki Uji
               </span>
-              <span className="font-bold text-primary text-sm block">
+              <span className="font-bold text-primary block mt-0.5">
                 Tendangan {session.kickingLeg}
               </span>
             </div>
 
             <div>
-              <span className="text-dark-secondary block mb-1">Target Sasaran</span>
-              <span className={`font-bold text-sm block ${target ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {target ? 'Telah Ditetapkan' : 'Belum Diatur'}
+              <span className="text-dark-secondary text-[11px] block">Target Sasaran</span>
+              <span className={`font-bold block mt-0.5 ${target ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {target ? 'Terkalibrasi' : 'Belum Diatur'}
               </span>
             </div>
           </div>
         </Card>
 
         {/* Ringkasan Akurasi Box */}
-        <Card className="flex flex-col justify-between p-5">
+        <Card className="flex flex-col justify-between p-3.5 md:p-4">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-dark-secondary uppercase tracking-wider">
-                Akurasi Sasaran Sesi
+              <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider">
+                Akurasi Sesi
               </span>
-              <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                {accuracySummary ? `${accuracySummary.hitsCount} / ${accuracySummary.validAttempts} HIT` : '-'}
+              <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                {accuracySummary ? `${accuracySummary.hitsCount}/${accuracySummary.validAttempts} HIT` : '-'}
               </span>
             </div>
 
-            <div className="mt-2 flex items-baseline gap-2">
-              <h3 className="text-3xl font-bold text-dark font-mono">
+            <div className="mt-1 flex items-baseline gap-2">
+              <h3 className="text-2xl md:text-3xl font-bold text-dark font-mono">
                 {accuracySummary?.accuracyPercentage !== null && accuracySummary?.accuracyPercentage !== undefined
                   ? `${accuracySummary.accuracyPercentage.toFixed(1)}%`
                   : '-'}
               </h3>
-              <span className="text-xs text-dark-secondary font-medium">
-                ({accuracySummary?.validAttempts || 0} Valid / {MAX_ATTEMPTS} Percobaan)
+              <span className="text-[11px] text-dark-secondary font-medium">
+                ({accuracySummary?.validAttempts || 0}/{MAX_ATTEMPTS} Valid)
               </span>
             </div>
           </div>
 
-          <p className="text-xs text-dark-secondary mt-2 pt-2 border-t border-dark-border/60">
-            Rata-rata deviasi sasaran:{' '}
+          <p className="text-[11px] text-dark-secondary mt-1.5 pt-1.5 border-t border-dark-border/60">
+            Avg Deviasi:{' '}
             <b className="text-dark font-mono font-semibold">
               {accuracySummary?.averageDistanceCm ? `${accuracySummary.averageDistanceCm.toFixed(1)} cm` : '-'}
             </b>
@@ -283,8 +291,87 @@ export const SessionDetailPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Tabel Rekapitulasi 5 Percobaan */}
+      {/* 1. VERSI MOBILE: CARD LIST 5 PERCOBAAN (Layar HP < md) */}
+      <div className="block md:hidden space-y-2.5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-dark px-1">
+          Rekap 5 Percobaan
+        </h3>
+
+        {session.attempts.map((att) => {
+          const spd = att.video && att.video.id ? speedResults[att.video.id] : null;
+          const acc = att.video && att.video.id ? accuracyResults[att.video.id] : null;
+
+          const isHit = acc?.finalResult === 'hit';
+          const isMiss = acc?.finalResult === 'miss';
+          const isInvalid = acc?.finalResult === 'invalid';
+
+          return (
+            <div
+              key={att.id}
+              className="bg-white border border-dark-border rounded-xl p-3 shadow-xs space-y-2 text-xs"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-1.5 font-bold text-dark">
+                  <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center font-mono text-[11px]">
+                    {att.attemptNumber}
+                  </span>
+                  <span>Percobaan #{att.attemptNumber}</span>
+                </div>
+
+                {isHit && (
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold text-[10px]">
+                    <CheckCircle2 size={12} /> HIT
+                  </span>
+                )}
+                {isMiss && (
+                  <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">
+                    <XCircle size={12} /> MISS
+                  </span>
+                )}
+                {isInvalid && (
+                  <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-bold text-[10px]">
+                    <AlertCircle size={12} /> INVALID
+                  </span>
+                )}
+                {!acc && <span className="text-[10px] text-slate-400">Belum Dianalisis</span>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                <div className="bg-slate-50 p-2 rounded-lg">
+                  <span className="text-dark-secondary block text-[10px]">Kecepatan Puncak</span>
+                  <span className="font-bold text-primary text-xs">
+                    {spd ? (
+                      spd.peakSpeedMetersPerSecond ? `${spd.peakSpeedMetersPerSecond.toFixed(2)} m/s` : `${spd.peakSpeedPixelsPerSecond.toFixed(0)} px/s`
+                    ) : '-'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-2 rounded-lg">
+                  <span className="text-dark-secondary block text-[10px]">Jarak Simpangan</span>
+                  <span className="font-bold text-dark text-xs">
+                    {acc?.distanceCentimeters !== null && acc?.distanceCentimeters !== undefined
+                      ? `${acc.distanceCentimeters.toFixed(1)} cm`
+                      : '-'}
+                  </span>
+                </div>
+              </div>
+
+              {att.video && (
+                <button
+                  onClick={() => navigate(`/analisis/${session.id}/attempt/${att.id}`)}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-dark font-semibold rounded-lg text-center flex items-center justify-center gap-1 text-xs transition-colors"
+                >
+                  Buka Detail Analisis <ArrowUpRight size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. VERSI DESKTOP: TABEL LEBAR LENGKAP (Layar >= md) */}
       <Card
+        className="hidden md:block"
         title="Rekapitulasi 5 Percobaan Tendangan"
         subtitle="Data pengukuran kecepatan puncak, simpangan titik sasaran, dan akurasi tiap percobaan"
       >
@@ -391,13 +478,13 @@ export const SessionDetailPage: React.FC = () => {
         <AccuracyDistanceChart results={accuracyResultsList} />
       </Card>
 
-      {/* Section 5 Video Cards */}
+      {/* Section 5 Video Cards (Grid Mobile 1 kolom / Desktop 5 kolom) */}
       <div>
-        <h3 className="text-sm font-bold text-dark uppercase tracking-wider mb-4">
+        <h3 className="text-xs md:text-sm font-bold text-dark uppercase tracking-wider mb-3 px-1">
           Manajemen 5 Video Percobaan
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {session.attempts.map((att) => (
             <div key={att.id} className="flex flex-col space-y-2">
               <VideoCard
