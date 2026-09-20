@@ -55,13 +55,11 @@ export class HumanMannequin3D {
   private boneMaterial: THREE.MeshStandardMaterial;
   private jointMaterial: THREE.MeshStandardMaterial;
   private headMaterial: THREE.MeshStandardMaterial;
-  private impactMaterial: THREE.MeshStandardMaterial;
 
   private headMesh: THREE.Mesh;
   private spineMesh: THREE.Mesh;
   private bones: THREE.Mesh[] = [];
   private joints: THREE.Mesh[] = [];
-  private impactIndicator: THREE.Mesh;
 
   constructor() {
     this.group = new THREE.Group();
@@ -87,13 +85,6 @@ export class HumanMannequin3D {
       metalness: 0.1,
       transparent: true,
       opacity: 0.95,
-    });
-
-    this.impactMaterial = new THREE.MeshStandardMaterial({
-      color: 0x800000,
-      emissive: 0x5a0000,
-      roughness: 0.2,
-      metalness: 0.2,
     });
 
     // 1. Kepala 3D
@@ -132,12 +123,6 @@ export class HumanMannequin3D {
       this.joints.push(mesh);
       this.group.add(mesh);
     });
-
-    // 5. Indikator titik impak tendangan
-    const impactGeo = new THREE.SphereGeometry(0.055, 16, 16);
-    this.impactIndicator = new THREE.Mesh(impactGeo, this.impactMaterial);
-    this.impactIndicator.visible = false;
-    this.group.add(this.impactIndicator);
   }
 
   private setBone(mesh: THREE.Mesh, p1: THREE.Vector3, p2: THREE.Vector3, thickness = 0.014): void {
@@ -163,8 +148,8 @@ export class HumanMannequin3D {
   public updatePose(
     landmarks: Landmark3D[] | null,
     to3DSpace: (lm: Landmark3D) => THREE.Vector3,
-    isImpactFrame: boolean = false,
-    kickingLeg: 'Kanan' | 'Kiri' = 'Kanan'
+    _isImpactFrame: boolean = false,
+    _kickingLeg: 'Kanan' | 'Kiri' = 'Kanan'
   ): void {
     if (!landmarks || landmarks.length < 33) {
       this.group.visible = false;
@@ -215,24 +200,11 @@ export class HumanMannequin3D {
         this.joints[i].position.copy(pts[lmIdx]);
       }
     });
-
-    // 5. Indikator impak kaki
-    if (isImpactFrame) {
-      this.impactIndicator.visible = true;
-      const targetFoot =
-        kickingLeg === 'Kanan'
-          ? pts[POSE_LANDMARKS.RIGHT_FOOT_INDEX]
-          : pts[POSE_LANDMARKS.LEFT_FOOT_INDEX];
-      this.impactIndicator.position.copy(targetFoot);
-    } else {
-      this.impactIndicator.visible = false;
-    }
   }
 
   public dispose(): void {
     this.boneMaterial.dispose();
     this.jointMaterial.dispose();
     this.headMaterial.dispose();
-    this.impactMaterial.dispose();
   }
 }

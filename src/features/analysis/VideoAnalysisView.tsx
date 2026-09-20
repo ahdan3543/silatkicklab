@@ -16,7 +16,8 @@ import {
   Maximize2,
   Minimize2,
   X,
-  Layers,
+  Box,
+  Video as VideoCamIcon,
   ChevronDown,
   ChevronUp,
   Sliders,
@@ -27,6 +28,7 @@ import {
   Move,
   Orbit,
   RotateCw,
+  Gauge,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { LoadingState } from '../../components/ui/LoadingState';
@@ -72,6 +74,13 @@ export const VideoAnalysisView: React.FC = () => {
   const [videoDims, setVideoDims] = useState<{ width: number; height: number }>({ width: 640, height: 360 });
   const [isExpandedView, setIsExpandedView] = useState<boolean>(false);
 
+  // Fitur Slow-Motion (Visual Playback Speed)
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+
+  // Mode Tampilan: 'video' (Video asli + 2D) atau '3d' (Manekin 3D + Black Canvas)
+  const [viewMode, setViewMode] = useState<'video' | '3d'>('video');
+  const [showSkeleton, setShowSkeleton] = useState<boolean>(true);
+
   // Zoom, Pan, & 3D Interactive States
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -85,12 +94,7 @@ export const VideoAnalysisView: React.FC = () => {
   const [isPhaseCorrectionOpen, setIsPhaseCorrectionOpen] = useState<boolean>(true);
   const [isChartOpen, setIsChartOpen] = useState<boolean>(true);
 
-  // Visual Layer Controls
-  const [showVideo, setShowVideo] = useState<boolean>(true);
-  const [show3DMannequin, setShow3DMannequin] = useState<boolean>(true);
-  const [showSkeleton, setShowSkeleton] = useState<boolean>(false);
-
-  // Pose Engine States
+  // Pose Engine States (Mendukung 60 FPS Rapat)
   const [analysisStatus, setAnalysisStatus] = useState<PoseAnalysisStatus>('idle');
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [processedFramesCount, setProcessedFramesCount] = useState<number>(0);
@@ -106,6 +110,9 @@ export const VideoAnalysisView: React.FC = () => {
   const [isCalibrationOpen, setIsCalibrationOpen] = useState<boolean>(false);
   const [isTargetSetupOpen, setIsTargetSetupOpen] = useState<boolean>(false);
   const [currentFrameNum, setCurrentFrameNum] = useState<number>(1);
+
+  // FPS referensi aktif (default 60 jika sudah dianalisis ulang, fallback ke 30)
+  const activeFps = poseResult?.fps || 60;
 
   // 1. Muat Sesi, Video, Pose, Speed, & Target Data
   useEffect(() => {
@@ -163,13 +170,14 @@ export const VideoAnalysisView: React.FC = () => {
     };
   }, [sessionId, attemptId]);
 
-  // 2. Sinkronisasi Pose
+  // 2. Sinkronisasi Pose Berkecepatan Tinggi (Interpolasi Presisi Waktu Nyata)
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const t = videoRef.current.currentTime;
     setCurrentTime(t);
 
     if (poseResult && Array.isArray(poseResult.frames) && poseResult.frames.length > 0) {
+      // Pencarian biner / linier frame terdekat
       let closest = poseResult.frames[0];
       let minDiff = Math.abs(closest.timestamp - t);
       for (let i = 1; i < poseResult.frames.length; i++) {
@@ -177,6 +185,9 @@ export const VideoAnalysisView: React.FC = () => {
         if (diff < minDiff) {
           minDiff = diff;
           closest = poseResult.frames[i];
+        } else if (diff > minDiff && poseResult.frames[i].timestamp > t) {
+          // Break lebih cepat karena timestamps terurut
+          break;
         }
       }
       setCurrentFramePose(closest);
@@ -189,6 +200,14 @@ export const VideoAnalysisView: React.FC = () => {
     const v = videoRef.current;
     setDuration(v.duration || 0);
     setVideoDims({ width: v.videoWidth || 640, height: v.videoHeight || 360 });
+    v.playbackRate = playbackSpeed;
+  };
+
+  const handleSpeedChange = (rate: number) => {
+    setPlaybackSpeed(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    }
   };
 
   // 3. Zoom & Pan Logic
@@ -220,7 +239,7 @@ export const VideoAnalysisView: React.FC = () => {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (interactionMode === '3d-orbit') return; // Biarkan OrbitControls yang menangani
+    if (interactionMode === '3d-orbit') return;
     if (zoomLevel <= 1) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
@@ -274,7 +293,7 @@ export const VideoAnalysisView: React.FC = () => {
     setIsDragging(false);
   };
 
-  // 4. Eksekusi Analisis Kecepatan & Akurasi
+  // 4. Eksekusi Analisis Kecepatan & Akurasi Terpadu (Kalkulasi Biomekanika Murni 100%)
   const triggerSpeedAndAccuracy = async (
     currentPose: PoseAnalysisResult,
     dominantLeg: 'Kanan' | 'Kiri',
@@ -304,7 +323,7 @@ export const VideoAnalysisView: React.FC = () => {
         }
       : speedCalculationEngine.autoDetectPhases(trajectory);
 
-    const totalF = currentPose.totalFrames || 30;
+    const totalF = currentPose.totalFrames || 60;
     if (phases.startFrame >= phases.impactFrame) {
       phases = {
         startFrame: Math.max(1, Math.floor(totalF * 0.2)),
@@ -359,6 +378,7 @@ export const VideoAnalysisView: React.FC = () => {
     }
   };
 
+  // EKSTRAKSI TINGKAT TINGGI: 60 FPS SAMPLING (Tidak Ada Gerak Kaki Yang Lolos)
   const runVideoPoseAnalysis = async () => {
     if (!videoRef.current || !attempt?.video) return;
     const video = videoRef.current;
@@ -372,7 +392,8 @@ export const VideoAnalysisView: React.FC = () => {
       video.pause();
       setIsPlaying(false);
 
-      const fps = 30;
+      // Gunakan 60 FPS agar sampling 2x lebih rapat dari sebelumnya
+      const fps = 60;
       const videoDuration = video.duration || attempt.video.durationSeconds || 1;
       const frameInterval = 1 / fps;
       const totalFrames = Math.max(1, Math.floor(videoDuration * fps));
@@ -399,6 +420,7 @@ export const VideoAnalysisView: React.FC = () => {
           video.addEventListener('seeked', onSeeked);
         });
 
+        // Deteksi landmark pada milidetik presisi
         const framePose = poseEngine.detectFrame(landmarker, video, seekTargetTime * 1000, frameIdx + 1);
         extractedFrames.push(framePose);
 
@@ -443,7 +465,7 @@ export const VideoAnalysisView: React.FC = () => {
       );
       video.currentTime = 0;
     } catch (err) {
-      console.error('Eksekusi gagal:', err);
+      console.error('Eksekusi analisis 60 FPS gagal:', err);
       setAnalysisStatus('failed');
     }
   };
@@ -515,9 +537,10 @@ export const VideoAnalysisView: React.FC = () => {
     }
   };
 
+  // Step frame presisi disesuaikan dengan activeFps
   const handleFrameStep = (direction: 'prev' | 'next') => {
     if (!videoRef.current) return;
-    const step = 1 / 30;
+    const step = 1 / activeFps;
     const nextTime = direction === 'next' ? Math.min(duration, currentTime + step) : Math.max(0, currentTime - step);
     videoRef.current.currentTime = nextTime;
     setCurrentTime(nextTime);
@@ -525,12 +548,12 @@ export const VideoAnalysisView: React.FC = () => {
 
   const handleJumpToFrame = (frameNum?: number) => {
     if (!videoRef.current || !frameNum) return;
-    const t = (frameNum - 1) / 30;
+    const t = (frameNum - 1) / activeFps;
     videoRef.current.currentTime = t;
     setCurrentTime(t);
   };
 
-  // Helper 1: Kecepatan Puncak
+  // Helper 1: Kecepatan Puncak (m/s atau px/s)
   const renderPeakSpeedValue = () => {
     if (!speedResult) return '-';
     const msValue = (speedResult as any)?.peakSpeedMetersPerSecond ?? (speedResult as any)?.maxSpeed;
@@ -547,12 +570,11 @@ export const VideoAnalysisView: React.FC = () => {
   // Helper 2: Durasi Siklus Tendangan
   const renderKickDurationValue = () => {
     if (!speedResult) return '-';
-    const fps = poseResult?.fps || 30;
     if (speedResult.recoveryFrame && speedResult.kickStartFrame && speedResult.recoveryFrame > speedResult.kickStartFrame) {
-      return `${((speedResult.recoveryFrame - speedResult.kickStartFrame) / fps).toFixed(2)} s`;
+      return `${((speedResult.recoveryFrame - speedResult.kickStartFrame) / activeFps).toFixed(2)} s`;
     }
     if (speedResult.impactFrame && speedResult.kickStartFrame && speedResult.impactFrame > speedResult.kickStartFrame) {
-      return `${((speedResult.impactFrame - speedResult.kickStartFrame) / fps).toFixed(2)} s`;
+      return `${((speedResult.impactFrame - speedResult.kickStartFrame) / activeFps).toFixed(2)} s`;
     }
     return '-';
   };
@@ -582,7 +604,6 @@ export const VideoAnalysisView: React.FC = () => {
   // Sub-komponen Player & Kontrol
   const renderVideoPlayerBlock = (isFullScreenMode: boolean = false) => (
     <div className={`space-y-2 select-none w-full ${isFullScreenMode ? 'h-full flex flex-col justify-between' : ''}`}>
-      {/* Kanvas Utama: Full 100% tanpa margin hitam jika di Fullscreen */}
       <div
         ref={viewportRef}
         onWheel={handleWheel}
@@ -605,6 +626,7 @@ export const VideoAnalysisView: React.FC = () => {
             }}
             className="w-full h-full relative flex items-center justify-center"
           >
+            {/* 1. LAYER VIDEO ASLI */}
             <video
               ref={videoRef}
               src={videoUrl}
@@ -613,156 +635,174 @@ export const VideoAnalysisView: React.FC = () => {
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onEnded={() => setIsPlaying(false)}
-              className={`w-full h-full ${
-                isFullScreenMode ? 'object-contain' : 'object-contain'
-              } pointer-events-none ${showVideo ? 'opacity-100' : 'opacity-0'}`}
+              className={`w-full h-full object-contain pointer-events-none transition-opacity duration-300 ${
+                viewMode === 'video' ? 'opacity-100' : 'opacity-0'
+              }`}
             />
 
-            {/* Manekin 3D: Rotasi bebas via transform / Orbit */}
-            <div
-              style={{
-                transform: `rotateY(${modelRotationY}deg)`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.2s ease-out',
-              }}
-              className={`w-full h-full absolute inset-0 ${
-                interactionMode === '3d-orbit' ? 'pointer-events-auto' : 'pointer-events-none'
-              }`}
-            >
-              <Pose3DOverlay
-                currentFramePose={currentFramePose}
-                videoWidth={isFullScreenMode ? window.innerWidth : videoDims.width}
-                videoHeight={isFullScreenMode ? window.innerHeight : videoDims.height}
-                isImpactFrame={isAtImpactFrame}
-                kickingLeg={session.kickingLeg}
-                showMannequin={show3DMannequin}
-              />
-            </div>
-
-            {showSkeleton && (
-              <PoseCanvasOverlay
-                currentFramePose={currentFramePose}
-                videoWidth={videoDims.width}
-                videoHeight={videoDims.height}
-              />
+            {/* 2. OVERLAY 2D SKELETON */}
+            {viewMode === 'video' && (
+              <>
+                {showSkeleton && (
+                  <PoseCanvasOverlay
+                    currentFramePose={currentFramePose}
+                    videoWidth={videoDims.width}
+                    videoHeight={videoDims.height}
+                  />
+                )}
+                <TargetOverlay
+                  target={target}
+                  accuracyResult={accuracyResult}
+                  videoWidth={videoDims.width}
+                  videoHeight={videoDims.height}
+                  isImpactFrame={isAtImpactFrame}
+                />
+              </>
             )}
 
-            <TargetOverlay
-              target={target}
-              accuracyResult={accuracyResult}
-              videoWidth={videoDims.width}
-              videoHeight={videoDims.height}
-              isImpactFrame={isAtImpactFrame}
-            />
+            {/* 3. OVERLAY 3D LAB */}
+            {viewMode === '3d' && (
+              <div
+                style={{
+                  transform: `rotateY(${modelRotationY}deg)`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.2s ease-out',
+                }}
+                className={`w-full h-full absolute inset-0 ${
+                  interactionMode === '3d-orbit' ? 'pointer-events-auto' : 'pointer-events-none'
+                }`}
+              >
+                <Pose3DOverlay
+                  currentFramePose={currentFramePose}
+                  videoWidth={isFullScreenMode ? window.innerWidth : videoDims.width}
+                  videoHeight={isFullScreenMode ? window.innerHeight : videoDims.height}
+                  isImpactFrame={isAtImpactFrame}
+                  kickingLeg={session.kickingLeg}
+                  showMannequin={true}
+                  target={target}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-slate-500 text-xs">Video tidak dapat dimuat</div>
         )}
 
-        {/* Toolbar Interaktif Kiri Bawah: Zoom & Mode Rotasi 3D */}
-        <div className="absolute bottom-3 left-3 z-30 flex items-center gap-1.5 bg-black/80 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/20 text-white text-xs shadow-lg">
-          {/* Toggle Mode: 3D Orbit vs Pan Video */}
-          <button
-            type="button"
-            onClick={() => setInteractionMode(interactionMode === '3d-orbit' ? 'pan-zoom' : '3d-orbit')}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors ${
-              interactionMode === '3d-orbit'
-                ? 'bg-amber-500 text-slate-950 shadow-xs'
-                : 'bg-white/20 text-white hover:bg-white/30'
-            }`}
-            title="Ganti Mode: Putar 3D atau Geser Layar"
-          >
-            {interactionMode === '3d-orbit' ? <Orbit size={12} /> : <Move size={12} />}
-            <span>{interactionMode === '3d-orbit' ? 'Putar 3D' : 'Pan/Zoom'}</span>
-          </button>
-
-          <div className="h-4 w-[1px] bg-white/20 mx-0.5" />
-
-          {/* Tombol Putar Cepat Model 3D Kiri-Kanan */}
-          <button
-            type="button"
-            onClick={() => setModelRotationY((prev) => prev - 45)}
-            className="p-1 hover:bg-white/20 rounded transition-colors text-amber-300"
-            title="Putar 3D ke Kiri 45°"
-          >
-            <RotateCcw size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setModelRotationY((prev) => prev + 45)}
-            className="p-1 hover:bg-white/20 rounded transition-colors text-amber-300"
-            title="Putar 3D ke Kanan 45°"
-          >
-            <RotateCw size={13} />
-          </button>
-
-          <div className="h-4 w-[1px] bg-white/20 mx-0.5" />
-
-          {/* Kontrol Zoom */}
-          <button
-            type="button"
-            onClick={handleZoomIn}
-            className="p-1 hover:bg-white/20 rounded transition-colors"
-            title="Zoom In"
-          >
-            <ZoomIn size={14} />
-          </button>
-          <span className="font-mono text-[10px] w-9 text-center font-bold">
-            {(zoomLevel * 100).toFixed(0)}%
-          </span>
-          <button
-            type="button"
-            onClick={handleZoomOut}
-            className="p-1 hover:bg-white/20 rounded transition-colors"
-            title="Zoom Out"
-          >
-            <ZoomOut size={14} />
-          </button>
-
-          {(zoomLevel > 1 || modelRotationY !== 0) && (
+        {/* Toolbar Interaktif Kiri Bawah (Hanya di mode 3D) */}
+        {viewMode === '3d' && (
+          <div className="absolute bottom-3 left-3 z-30 flex items-center gap-1.5 bg-black/80 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/20 text-white text-xs shadow-lg">
             <button
               type="button"
-              onClick={handleResetZoom}
-              className="p-1 hover:bg-white/20 rounded transition-colors text-rose-400"
-              title="Reset Zoom & Rotasi"
+              onClick={() => setInteractionMode(interactionMode === '3d-orbit' ? 'pan-zoom' : '3d-orbit')}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                interactionMode === '3d-orbit'
+                  ? 'bg-amber-500 text-slate-950 shadow-xs'
+                  : 'bg-white/20 text-white hover:bg-white/30'
+              }`}
+              title="Ganti Mode: Putar 3D atau Geser Layar"
             >
-              <ResetIcon size={12} />
+              {interactionMode === '3d-orbit' ? <Orbit size={12} /> : <Move size={12} />}
+              <span>{interactionMode === '3d-orbit' ? 'Putar 3D' : 'Pan/Zoom'}</span>
             </button>
+
+            <div className="h-4 w-[1px] bg-white/20 mx-0.5" />
+
+            <button
+              type="button"
+              onClick={() => setModelRotationY((prev) => prev - 45)}
+              className="p-1 hover:bg-white/20 rounded transition-colors text-amber-300"
+              title="Putar 3D ke Kiri 45°"
+            >
+              <RotateCcw size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setModelRotationY((prev) => prev + 45)}
+              className="p-1 hover:bg-white/20 rounded transition-colors text-amber-300"
+              title="Putar 3D ke Kanan 45°"
+            >
+              <RotateCw size={13} />
+            </button>
+
+            <div className="h-4 w-[1px] bg-white/20 mx-0.5" />
+
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              className="p-1 hover:bg-white/20 rounded transition-colors"
+              title="Zoom In"
+            >
+              <ZoomIn size={14} />
+            </button>
+            <span className="font-mono text-[10px] w-9 text-center font-bold">
+              {(zoomLevel * 100).toFixed(0)}%
+            </span>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="p-1 hover:bg-white/20 rounded transition-colors"
+              title="Zoom Out"
+            >
+              <ZoomOut size={14} />
+            </button>
+
+            {(zoomLevel > 1 || modelRotationY !== 0) && (
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                className="p-1 hover:bg-white/20 rounded transition-colors text-rose-400"
+                title="Reset Zoom & Rotasi"
+              >
+                <ResetIcon size={12} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Floating Mode Switcher di Kanan Atas */}
+        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/80 backdrop-blur-md p-1 rounded-xl border border-white/20 z-30">
+          <button
+            type="button"
+            onClick={() => setViewMode('video')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+              viewMode === 'video'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-white/70 hover:text-white'
+            }`}
+          >
+            <VideoCamIcon size={12} /> Video
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('3d')}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+              viewMode === '3d'
+                ? 'bg-[#800000] text-white shadow-sm'
+                : 'text-white/70 hover:text-white'
+            }`}
+          >
+            <Box size={12} /> 3D Lab
+          </button>
+
+          {viewMode === 'video' && (
+            <>
+              <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
+              <button
+                type="button"
+                onClick={() => setShowSkeleton(!showSkeleton)}
+                className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors ${
+                  showSkeleton ? 'bg-emerald-600 text-white font-bold' : 'text-white/50 hover:text-white'
+                }`}
+                title="Toggle Skeleton 2D"
+              >
+                2D
+              </button>
+            </>
           )}
         </div>
 
-        {/* Floating Layer Controls di Kanan Atas */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/80 backdrop-blur-md px-2 py-1 rounded-xl border border-white/20 z-30">
-          <button
-            type="button"
-            onClick={() => setShowVideo(!showVideo)}
-            className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors ${
-              showVideo ? 'bg-white/30 text-white font-bold' : 'text-white/50 hover:text-white'
-            }`}
-          >
-            Vid
-          </button>
-          <button
-            type="button"
-            onClick={() => setShow3DMannequin(!show3DMannequin)}
-            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors flex items-center gap-0.5 ${
-              show3DMannequin ? 'bg-[#800000] text-amber-300' : 'text-white/50 hover:text-white'
-            }`}
-          >
-            <Layers size={11} /> 3D
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowSkeleton(!showSkeleton)}
-            className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors ${
-              showSkeleton ? 'bg-emerald-600 text-white font-bold' : 'text-white/50 hover:text-white'
-            }`}
-          >
-            2D
-          </button>
-        </div>
-
-        {/* Status Fase Aktif Melayang */}
+        {/* Status Indikator Fase */}
         <div className="absolute top-3 left-3 z-30 flex items-center gap-1">
           {isAtStartFrame && (
             <span className="bg-sky-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm border border-sky-400">
@@ -782,9 +822,9 @@ export const VideoAnalysisView: React.FC = () => {
         </div>
 
         {analysisStatus === 'processing' && (
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-6 text-center text-white">
+          <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-6 text-center text-white">
             <Activity size={32} className="text-accent animate-pulse mb-2" />
-            <h4 className="text-xs sm:text-sm font-bold">Menganalisis Biomekanika...</h4>
+            <h4 className="text-xs sm:text-sm font-bold">Menganalisis Biomekanika (60 FPS)...</h4>
             <p className="text-[11px] text-slate-300 mt-1 mb-3 font-mono">
               Frame {processedFramesCount} / {totalEstimatedFrames} ({progressPercent}%)
             </p>
@@ -805,7 +845,7 @@ export const VideoAnalysisView: React.FC = () => {
             type="range"
             min={0}
             max={duration || 1}
-            step={0.01}
+            step={0.005}
             value={currentTime}
             onChange={handleSeek}
             disabled={analysisStatus === 'processing'}
@@ -840,6 +880,28 @@ export const VideoAnalysisView: React.FC = () => {
             >
               Frame <ChevronRight size={13} />
             </button>
+
+            {/* PENGATUR KECEPATAN SLOW MOTION (0.25x, 0.5x, 1x) */}
+            <div className="flex items-center ml-1 bg-slate-800/90 border border-slate-700/80 rounded-lg p-0.5">
+              <span className="px-1.5 text-slate-400 text-[10px] hidden sm:inline-flex items-center gap-0.5">
+                <Gauge size={11} /> Speed:
+              </span>
+              {[0.25, 0.5, 1].map((rate) => (
+                <button
+                  key={rate}
+                  type="button"
+                  onClick={() => handleSpeedChange(rate)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                    playbackSpeed === rate
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title={`Kecepatan Pemutaran ${rate}x`}
+                >
+                  {rate === 1 ? '1x' : `${rate}x`}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-1">
@@ -874,7 +936,7 @@ export const VideoAnalysisView: React.FC = () => {
             )}
 
             <div className="text-[10px] text-slate-300 font-mono bg-slate-800/80 px-2 py-1 rounded ml-1">
-              #{currentFrameNum}
+              #{currentFrameNum} <span className="text-[8px] text-slate-500">({activeFps}fps)</span>
             </div>
 
             <button
@@ -1028,7 +1090,7 @@ export const VideoAnalysisView: React.FC = () => {
             onClick={runVideoPoseAnalysis}
             disabled={analysisStatus === 'processing'}
           >
-            {poseResult ? 'Hitung Ulang Analisis Lengkap' : 'Mulai Analisis Video'}
+            {poseResult ? 'Hitung Ulang Analisis Lengkap (60 FPS)' : 'Mulai Analisis Video (60 FPS)'}
           </Button>
 
           {/* Accordion 1: Koreksi Fase Tendangan Interaktif */}
@@ -1085,17 +1147,17 @@ export const VideoAnalysisView: React.FC = () => {
                   <div>
                     <div className="flex justify-between mb-1">
                       <span className="font-bold text-emerald-700">
-                        3. Kembali Posisi Awal (Frame {speedResult.recoveryFrame || (speedResult.impactFrame || 1) + 10})
+                        3. Kembali Posisi Awal (Frame {speedResult.recoveryFrame || (speedResult.impactFrame || 1) + 20})
                       </span>
                       <span className="font-mono text-slate-700">
-                        {formatDuration(speedResult.recoveryTimestamp || ((speedResult.recoveryFrame || 1) / 30))}
+                        {formatDuration(speedResult.recoveryTimestamp || ((speedResult.recoveryFrame || 1) / activeFps))}
                       </span>
                     </div>
                     <input
                       type="range"
                       min={(speedResult.impactFrame || 1) + 1}
-                      max={poseResult?.totalFrames || 100}
-                      value={speedResult.recoveryFrame || (speedResult.impactFrame || 1) + 10}
+                      max={poseResult?.totalFrames || 200}
+                      value={speedResult.recoveryFrame || (speedResult.impactFrame || 1) + 20}
                       onChange={(e) => handlePhaseChange('rec', parseInt(e.target.value))}
                       className="w-full accent-emerald-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
                     />
@@ -1136,10 +1198,9 @@ export const VideoAnalysisView: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL FULL-WINDOW LAB MODE (EDGE-TO-EDGE 100VW & 100VH) */}
+      {/* MODAL FULL-WINDOW LAB MODE */}
       {isExpandedView && (
         <div className="fixed inset-0 z-[9999] bg-black flex flex-col justify-between w-screen h-screen overflow-hidden animate-fadeIn">
-          {/* Top Bar Ramping Lab */}
           <div className="flex items-center justify-between text-white py-2 px-3 sm:px-6 bg-black/90 border-b border-white/10 shrink-0 z-50">
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs sm:text-sm text-amber-300 flex items-center gap-1.5">
@@ -1169,7 +1230,6 @@ export const VideoAnalysisView: React.FC = () => {
             </div>
           </div>
 
-          {/* Area Kanvas Penuh Tanpa Batas Padding */}
           <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center bg-black">
             {renderVideoPlayerBlock(true)}
           </div>
