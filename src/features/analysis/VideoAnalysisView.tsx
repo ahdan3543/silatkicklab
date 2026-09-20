@@ -94,7 +94,7 @@ export const VideoAnalysisView: React.FC = () => {
   const [isPhaseCorrectionOpen, setIsPhaseCorrectionOpen] = useState<boolean>(true);
   const [isChartOpen, setIsChartOpen] = useState<boolean>(true);
 
-  // Pose Engine States (Mendukung 60 FPS Rapat)
+  // Pose Engine States (60 FPS)
   const [analysisStatus, setAnalysisStatus] = useState<PoseAnalysisStatus>('idle');
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [processedFramesCount, setProcessedFramesCount] = useState<number>(0);
@@ -111,7 +111,6 @@ export const VideoAnalysisView: React.FC = () => {
   const [isTargetSetupOpen, setIsTargetSetupOpen] = useState<boolean>(false);
   const [currentFrameNum, setCurrentFrameNum] = useState<number>(1);
 
-  // FPS referensi aktif (default 60 jika sudah dianalisis ulang, fallback ke 30)
   const activeFps = poseResult?.fps || 60;
 
   // 1. Muat Sesi, Video, Pose, Speed, & Target Data
@@ -167,17 +166,21 @@ export const VideoAnalysisView: React.FC = () => {
 
     return () => {
       if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+      if (screen.orientation && 'unlock' in screen.orientation) {
+        try {
+          screen.orientation.unlock();
+        } catch {}
+      }
     };
   }, [sessionId, attemptId]);
 
-  // 2. Sinkronisasi Pose Berkecepatan Tinggi (Interpolasi Presisi Waktu Nyata)
+  // 2. Sinkronisasi Pose & Playback Rate
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const t = videoRef.current.currentTime;
     setCurrentTime(t);
 
     if (poseResult && Array.isArray(poseResult.frames) && poseResult.frames.length > 0) {
-      // Pencarian biner / linier frame terdekat
       let closest = poseResult.frames[0];
       let minDiff = Math.abs(closest.timestamp - t);
       for (let i = 1; i < poseResult.frames.length; i++) {
@@ -186,7 +189,6 @@ export const VideoAnalysisView: React.FC = () => {
           minDiff = diff;
           closest = poseResult.frames[i];
         } else if (diff > minDiff && poseResult.frames[i].timestamp > t) {
-          // Break lebih cepat karena timestamps terurut
           break;
         }
       }
@@ -210,7 +212,49 @@ export const VideoAnalysisView: React.FC = () => {
     }
   };
 
-  // 3. Zoom & Pan Logic
+  // 3. Masuk dan Keluar Fullscreen + Lock Landscape di Smartphone
+  const handleOpenFullscreenLandscape = async () => {
+    setIsExpandedView(true);
+    handleResetZoom();
+
+    try {
+      const docEl = document.documentElement;
+      if (docEl.requestFullscreen) {
+        await docEl.requestFullscreen();
+      } else if ((docEl as any).webkitRequestFullscreen) {
+        await (docEl as any).webkitRequestFullscreen();
+      }
+
+      if (screen.orientation && 'lock' in screen.orientation) {
+        await (screen.orientation as any).lock('landscape').catch(() => {});
+      }
+    } catch (err) {
+      console.log('Fullscreen landscape error:', err);
+    }
+  };
+
+  const handleCloseFullscreen = async () => {
+    setIsExpandedView(false);
+    handleResetZoom();
+
+    try {
+      if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      }
+
+      if (screen.orientation && 'unlock' in screen.orientation) {
+        screen.orientation.unlock();
+      }
+    } catch (err) {
+      console.log('Exit fullscreen error:', err);
+    }
+  };
+
+  // 4. Zoom & Pan Logic
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.3, 4));
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
@@ -293,7 +337,7 @@ export const VideoAnalysisView: React.FC = () => {
     setIsDragging(false);
   };
 
-  // 4. Eksekusi Analisis Kecepatan & Akurasi Terpadu (Kalkulasi Biomekanika Murni 100%)
+  // 5. Eksekusi Analisis Kecepatan & Akurasi
   const triggerSpeedAndAccuracy = async (
     currentPose: PoseAnalysisResult,
     dominantLeg: 'Kanan' | 'Kiri',
@@ -378,7 +422,6 @@ export const VideoAnalysisView: React.FC = () => {
     }
   };
 
-  // EKSTRAKSI TINGKAT TINGGI: 60 FPS SAMPLING (Tidak Ada Gerak Kaki Yang Lolos)
   const runVideoPoseAnalysis = async () => {
     if (!videoRef.current || !attempt?.video) return;
     const video = videoRef.current;
@@ -392,7 +435,6 @@ export const VideoAnalysisView: React.FC = () => {
       video.pause();
       setIsPlaying(false);
 
-      // Gunakan 60 FPS agar sampling 2x lebih rapat dari sebelumnya
       const fps = 60;
       const videoDuration = video.duration || attempt.video.durationSeconds || 1;
       const frameInterval = 1 / fps;
@@ -420,7 +462,6 @@ export const VideoAnalysisView: React.FC = () => {
           video.addEventListener('seeked', onSeeked);
         });
 
-        // Deteksi landmark pada milidetik presisi
         const framePose = poseEngine.detectFrame(landmarker, video, seekTargetTime * 1000, frameIdx + 1);
         extractedFrames.push(framePose);
 
@@ -537,7 +578,6 @@ export const VideoAnalysisView: React.FC = () => {
     }
   };
 
-  // Step frame presisi disesuaikan dengan activeFps
   const handleFrameStep = (direction: 'prev' | 'next') => {
     if (!videoRef.current) return;
     const step = 1 / activeFps;
@@ -553,7 +593,6 @@ export const VideoAnalysisView: React.FC = () => {
     setCurrentTime(t);
   };
 
-  // Helper 1: Kecepatan Puncak (m/s atau px/s)
   const renderPeakSpeedValue = () => {
     if (!speedResult) return '-';
     const msValue = (speedResult as any)?.peakSpeedMetersPerSecond ?? (speedResult as any)?.maxSpeed;
@@ -567,7 +606,6 @@ export const VideoAnalysisView: React.FC = () => {
     return '-';
   };
 
-  // Helper 2: Durasi Siklus Tendangan
   const renderKickDurationValue = () => {
     if (!speedResult) return '-';
     if (speedResult.recoveryFrame && speedResult.kickStartFrame && speedResult.recoveryFrame > speedResult.kickStartFrame) {
@@ -881,7 +919,7 @@ export const VideoAnalysisView: React.FC = () => {
               Frame <ChevronRight size={13} />
             </button>
 
-            {/* PENGATUR KECEPATAN SLOW MOTION (0.25x, 0.5x, 1x) */}
+            {/* PENGATUR KECEPATAN SLOW MOTION */}
             <div className="flex items-center ml-1 bg-slate-800/90 border border-slate-700/80 rounded-lg p-0.5">
               <span className="px-1.5 text-slate-400 text-[10px] hidden sm:inline-flex items-center gap-0.5">
                 <Gauge size={11} /> Speed:
@@ -939,16 +977,14 @@ export const VideoAnalysisView: React.FC = () => {
               #{currentFrameNum} <span className="text-[8px] text-slate-500">({activeFps}fps)</span>
             </div>
 
+            {/* Tombol Fullscreen Otomatis Landscape */}
             <button
               type="button"
-              onClick={() => {
-                setIsExpandedView(!isExpandedView);
-                handleResetZoom();
-              }}
+              onClick={handleOpenFullscreenLandscape}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              title={isExpandedView ? 'Perkecil' : 'Layar Penuh Lab'}
+              title="Layar Penuh Landscape"
             >
-              {isExpandedView ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              <Maximize2 size={14} />
             </button>
           </div>
         </div>
@@ -1013,7 +1049,6 @@ export const VideoAnalysisView: React.FC = () => {
 
         {/* Sisi Kanan: Panel Hasil & Koreksi */}
         <div className="lg:col-span-5 space-y-3">
-          {/* Card Hasil Evaluasi Utama */}
           {accuracyResult && target ? (
             <div
               className={`p-4 rounded-2xl border text-white shadow-subtle relative overflow-hidden ${
@@ -1093,7 +1128,7 @@ export const VideoAnalysisView: React.FC = () => {
             {poseResult ? 'Hitung Ulang Analisis Lengkap (60 FPS)' : 'Mulai Analisis Video (60 FPS)'}
           </Button>
 
-          {/* Accordion 1: Koreksi Fase Tendangan Interaktif */}
+          {/* Accordion 1: Koreksi Titik Fase Gerak */}
           {speedResult && (
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
               <button
@@ -1198,14 +1233,14 @@ export const VideoAnalysisView: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL FULL-WINDOW LAB MODE */}
+      {/* MODAL FULLSCREEN LANDSCAPE OTOMATIS */}
       {isExpandedView && (
         <div className="fixed inset-0 z-[9999] bg-black flex flex-col justify-between w-screen h-screen overflow-hidden animate-fadeIn">
           <div className="flex items-center justify-between text-white py-2 px-3 sm:px-6 bg-black/90 border-b border-white/10 shrink-0 z-50">
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs sm:text-sm text-amber-300 flex items-center gap-1.5">
                 <Orbit size={15} className="text-amber-400" />
-                OBSERVASI BIOMEKANIKA 3D LAB
+                OBSERVASI BIOMEKANIKA LANDSCAPE
               </span>
               <span className="hidden sm:inline text-xs text-slate-400 font-mono">
                 [#{attempt.attemptNumber} - {session.sessionCode}]
@@ -1214,18 +1249,15 @@ export const VideoAnalysisView: React.FC = () => {
 
             <div className="flex items-center gap-3">
               <span className="text-[10px] text-slate-400 hidden md:inline">
-                Mode aktif: <b className="text-amber-300 uppercase">{interactionMode === '3d-orbit' ? 'Putar Bebas 3D' : 'Pan & Zoom'}</b>
+                Mode: <b className="text-amber-300 uppercase">{interactionMode === '3d-orbit' ? 'Putar 3D' : 'Pan & Zoom'}</b>
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  setIsExpandedView(false);
-                  handleResetZoom();
-                }}
+                onClick={handleCloseFullscreen}
                 className="p-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1 text-xs font-semibold"
               >
                 <X size={15} />
-                <span>Keluar</span>
+                <span>Tutup</span>
               </button>
             </div>
           </div>
