@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UploadCloud, Video as VideoIcon, RefreshCw, Trash2, FileVideo, Clock, HardDrive, Loader2 } from 'lucide-react';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import { UploadCloud, Video as VideoIcon, RefreshCw, Trash2, Loader2, Play } from 'lucide-react';
 import { Attempt, Video, MAX_VIDEO_SIZE_MB, ALLOWED_VIDEO_TYPES } from '../../types';
 import { videoStorageService } from '../../services/videoStorageService';
-import { formatFileSize, formatDuration } from '../../utils/formatters';
 
 interface VideoCardProps {
   attempt: Attempt;
@@ -13,6 +9,7 @@ interface VideoCardProps {
   onDeleteVideo: (attemptId: string) => Promise<void>;
   onAskReplace: (attemptId: string, file: File) => void;
   onAskDelete: (attemptId: string) => void;
+  onOpenAnalysis?: () => void;
 }
 
 export const VideoCard: React.FC<VideoCardProps> = ({
@@ -20,6 +17,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   onUploadSuccess,
   onAskReplace,
   onAskDelete,
+  onOpenAnalysis,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -28,27 +26,34 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const [dragOver, setDragOver] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const hasVideo = Boolean(attempt.video);
+  // Video dianggap ada HANYA jika objek video ada DAN memiliki fileName atau fileUrl valid
+  const hasVideoMetadata = Boolean(
+    attempt.video && (attempt.video.fileUrl || attempt.video.fileName || attempt.video.id)
+  );
 
-  // Memuat file video biner dari IndexedDB
   useEffect(() => {
     let currentObjectUrl: string | null = null;
+    let isMounted = true;
 
     const loadBlob = async () => {
-      if (hasVideo) {
+      if (hasVideoMetadata) {
         try {
           setIsLoadingBlob(true);
           const blob = await videoStorageService.getVideoBlob(attempt.id);
+          if (!isMounted) return;
+
           if (blob) {
             currentObjectUrl = URL.createObjectURL(blob);
             setVideoUrl(currentObjectUrl);
           } else if (attempt.video?.fileUrl) {
             setVideoUrl(attempt.video.fileUrl);
+          } else {
+            setVideoUrl(null);
           }
         } catch {
-          setErrorMessage('Gagal memuat preview video.');
+          if (isMounted) setVideoUrl(null);
         } finally {
-          setIsLoadingBlob(false);
+          if (isMounted) setIsLoadingBlob(false);
         }
       } else {
         setVideoUrl(null);
@@ -58,13 +63,16 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     loadBlob();
 
     return () => {
+      isMounted = false;
       if (currentObjectUrl) {
         URL.revokeObjectURL(currentObjectUrl);
       }
     };
-  }, [hasVideo, attempt.id, attempt.video?.fileUrl]);
+  }, [hasVideoMetadata, attempt.id, attempt.video?.fileUrl]);
 
-  // Ekstraksi durasi metadata menggunakan temporary element
+  // Status final: benar-benar ada url video atau sedang loading file yang valid
+  const isVideoAvailable = Boolean(hasVideoMetadata && (videoUrl || isLoadingBlob));
+
   const extractVideoDuration = (file: File): Promise<number> => {
     return new Promise((resolve) => {
       const tempVideo = document.createElement('video');
@@ -85,26 +93,22 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const handleFileProcess = async (file: File) => {
     setErrorMessage(null);
 
-    // 1. Validasi MIME Type
     if (!ALLOWED_VIDEO_TYPES.includes(file.type) && !file.name.match(/\.(mp4|webm|mov)$/i)) {
-      setErrorMessage('Format video tidak didukung. Gunakan MP4, WebM, atau MOV.');
+      setErrorMessage('Gunakan format MP4 atau WebM.');
       return;
     }
 
-    // 2. Validasi Ukuran File
     const maxSizeBytes = MAX_VIDEO_SIZE_MB * 1024 * 1024;
     if (file.size > maxSizeBytes) {
-      setErrorMessage(`Ukuran video terlalu besar. Maksimal ${MAX_VIDEO_SIZE_MB} MB.`);
+      setErrorMessage(`Ukuran maksimal ${MAX_VIDEO_SIZE_MB} MB.`);
       return;
     }
 
-    // 3. Konfirmasi jika sudah ada video
-    if (hasVideo) {
+    if (isVideoAvailable) {
       onAskReplace(attempt.id, file);
       return;
     }
 
-    // 4. Proses Upload Baru
     try {
       setIsProcessingFile(true);
       const duration = await extractVideoDuration(file);
@@ -122,7 +126,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         file
       );
     } catch {
-      setErrorMessage('Gagal menyimpan file video.');
+      setErrorMessage('Gagal memproses file video.');
     } finally {
       setIsProcessingFile(false);
     }
@@ -133,117 +137,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     if (files && files[0]) {
       handleFileProcess(files[0]);
     }
-    // Reset file input value agar dapat memilih file yang sama jika diperlukan
     e.target.value = '';
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileProcess(e.dataTransfer.files[0]);
-    }
-  };
-
   return (
-    <Card className="flex flex-col justify-between p-4 space-y-3 bg-white">
-      {/* Header Card */}
-      <div className="flex items-center justify-between pb-2 border-b border-dark-border">
-        <span className="text-xs font-bold text-dark tracking-wide">
-          PERCOBAAN #{attempt.attemptNumber}
-        </span>
-        <Badge variant={hasVideo ? 'success' : 'neutral'}>
-          {hasVideo ? '● Video Tersedia' : 'Belum Diunggah'}
-        </Badge>
-      </div>
-
-      {/* Video Preview / Upload Dropzone */}
-      <div className="space-y-2">
-        {hasVideo ? (
-          <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
-            {isLoadingBlob ? (
-              <div className="flex flex-col items-center gap-1.5 text-slate-400">
-                <Loader2 size={22} className="animate-spin text-accent" />
-                <span className="text-[11px]">Memuat file video...</span>
-              </div>
-            ) : videoUrl ? (
-              <video
-                src={videoUrl}
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-1 text-slate-500">
-                <VideoIcon size={24} />
-                <span className="text-[10px]">Preview tidak tersedia</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`aspect-video rounded-lg border-2 border-dashed flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-all ${
-              dragOver
-                ? 'border-primary bg-primary/5 scale-[0.99]'
-                : 'border-dark-border bg-slate-50/50 hover:bg-slate-50 hover:border-slate-300'
-            }`}
-          >
-            {isProcessingFile ? (
-              <div className="flex flex-col items-center gap-2 text-primary">
-                <Loader2 size={24} className="animate-spin" />
-                <span className="text-xs font-medium">Menyimpan video...</span>
-              </div>
-            ) : (
-              <>
-                <div className="w-9 h-9 rounded-full bg-white shadow-subtle border border-dark-border flex items-center justify-center text-dark-secondary mb-1.5">
-                  <UploadCloud size={18} />
-                </div>
-                <p className="text-xs font-semibold text-dark">Drag & drop video di sini</p>
-                <p className="text-[10px] text-dark-secondary mt-0.5">atau klik untuk memilih file (MP4, WebM)</p>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Video Metadata Information */}
-        {hasVideo && attempt.video && (
-          <div className="p-2.5 bg-slate-50 rounded-lg border border-dark-border/80 text-[11px] space-y-1">
-            <div className="flex items-center gap-1.5 font-medium text-dark truncate">
-              <FileVideo size={13} className="text-primary shrink-0" />
-              <span className="truncate font-mono" title={attempt.video.fileName}>
-                {attempt.video.fileName}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1 text-dark-secondary pt-0.5">
-              <div className="flex items-center gap-1">
-                <Clock size={11} />
-                <span>{formatDuration(attempt.video.durationSeconds)}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <HardDrive size={11} />
-                <span>{formatFileSize(attempt.video.fileSize)}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Feedback Pesan Error */}
-        {errorMessage && (
-          <p className="text-[11px] text-red-600 font-medium leading-tight">
-            {errorMessage}
-          </p>
-        )}
-      </div>
-
-      {/* Input File Tersembunyi */}
+    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col justify-between transition-all hover:border-slate-300">
       <input
         type="file"
         ref={fileInputRef}
@@ -252,42 +150,108 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         className="hidden"
       />
 
-      {/* Tombol Aksi */}
-      <div className="pt-1">
-        {hasVideo ? (
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              icon={<RefreshCw size={13} />}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Ganti
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs text-red-700 hover:bg-red-50 hover:border-red-200"
-              icon={<Trash2 size={13} />}
-              onClick={() => onAskDelete(attempt.id)}
-            >
-              Hapus
-            </Button>
+      {/* Header Kecil Percobaan */}
+      <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 bg-slate-50/50">
+        <span className="text-[11px] font-bold text-slate-800">
+          Percobaan #{attempt.attemptNumber}
+        </span>
+        <span
+          className={`w-2 h-2 rounded-full ${
+            isVideoAvailable ? 'bg-emerald-500 ring-2 ring-emerald-100' : 'bg-slate-300'
+          }`}
+          title={isVideoAvailable ? 'Video Tersedia' : 'Belum Ada Video'}
+        />
+      </div>
+
+      {/* Thumbnail Video ATAU Dropzone Upload */}
+      <div className="p-2">
+        {isVideoAvailable ? (
+          <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden flex items-center justify-center group/thumb">
+            {isLoadingBlob ? (
+              <Loader2 size={18} className="animate-spin text-slate-400" />
+            ) : videoUrl ? (
+              <>
+                <video
+                  src={videoUrl}
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full object-cover"
+                />
+                {onOpenAnalysis && (
+                  <button
+                    type="button"
+                    onClick={onOpenAnalysis}
+                    className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                    title="Buka Analisis"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[#800000] text-white flex items-center justify-center shadow-md">
+                      <Play size={14} className="ml-0.5" fill="white" />
+                    </div>
+                  </button>
+                )}
+              </>
+            ) : (
+              <VideoIcon size={20} className="text-slate-600" />
+            )}
+
+            {/* Aksi Cepat (Ganti & Hapus) */}
+            <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/60 backdrop-blur-xs p-0.5 rounded-md opacity-0 group-hover/thumb:opacity-100 sm:group-hover/thumb:opacity-100 max-sm:opacity-100 transition-opacity z-10">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1 rounded text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+                title="Ganti Video"
+              >
+                <RefreshCw size={11} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onAskDelete(attempt.id)}
+                className="p-1 rounded text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-colors"
+                title="Hapus Video"
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
           </div>
         ) : (
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full text-xs"
-            icon={<UploadCloud size={14} />}
+          /* Tampilan Kosong Jika Belum Ada Video */
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer.files?.[0]) handleFileProcess(e.dataTransfer.files[0]);
+            }}
             onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessingFile}
+            className={`aspect-video rounded-lg border border-dashed flex flex-col items-center justify-center p-2 text-center cursor-pointer transition-all ${
+              dragOver
+                ? 'border-[#800000] bg-[#800000]/5'
+                : 'border-slate-300 bg-slate-50/70 hover:bg-slate-100/70'
+            }`}
           >
-            {isProcessingFile ? 'Menyimpan...' : 'Upload Video'}
-          </Button>
+            {isProcessingFile ? (
+              <Loader2 size={18} className="animate-spin text-[#800000]" />
+            ) : (
+              <>
+                <UploadCloud size={18} className="text-slate-400 mb-1" />
+                <span className="text-[11px] font-semibold text-slate-700">Unggah Video</span>
+                <span className="text-[9px] text-slate-400">MP4 / WebM</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {errorMessage && (
+          <p className="text-[10px] text-rose-600 mt-1 leading-tight text-center font-medium">
+            {errorMessage}
+          </p>
         )}
       </div>
-    </Card>
+    </div>
   );
 };

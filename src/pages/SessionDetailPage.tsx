@@ -1,11 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Calendar,
-  User,
-  Shield,
-  Zap,
   Target as TargetIcon,
   CheckCircle2,
   XCircle,
@@ -14,7 +10,9 @@ import {
   ArrowUpRight,
   HelpCircle,
   Clock,
-  Activity,
+  Zap,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -35,8 +33,8 @@ import { accuracyCalculationEngine } from '../services/accuracy/accuracyCalculat
 import { videoStorageService } from '../services/videoStorageService';
 import { formatDate } from '../utils/formatters';
 
-// Komponen Grafik Kecepatan Khusus Halaman Detail Sesi (Tanpa Garis Acuan Buatan)
-const SessionSpeedBarChart: React.FC<{
+// Komponen Grafik Durasi Siklus Penuh (Full Kick Cycle: Start -> Impact -> Recovery)
+const SessionDurationBarChart: React.FC<{
   attempts: AnalysisSession['attempts'];
   speedResults: { [videoId: string]: SpeedAnalysisResult };
 }> = ({ attempts, speedResults }) => {
@@ -44,17 +42,39 @@ const SessionSpeedBarChart: React.FC<{
   const width = 500;
   const padding = { top: 30, right: 25, bottom: 35, left: 45 };
 
-  const values = attempts.map((att) => {
-    if (!att.video || !speedResults[att.video.id]) return 0;
+  // Hitung durasi siklus penuh (detik) untuk setiap percobaan
+  const cycleData = attempts.map((att) => {
+    if (!att.video || !speedResults[att.video.id]) {
+      return { duration: 0, peakSpeed: 0, label: '-' };
+    }
     const res = speedResults[att.video.id];
-    return res.calibrationAvailable && res.peakSpeedMetersPerSecond
+    const fps = 30;
+
+    let durationSec = 0;
+    // 1. Jika fase recovery ada (siklus penuh)
+    if (res.recoveryFrame && res.kickStartFrame && res.recoveryFrame > res.kickStartFrame) {
+      durationSec = (res.recoveryFrame - res.kickStartFrame) / fps;
+    } else if (res.impactFrame && res.kickStartFrame && res.impactFrame > res.kickStartFrame) {
+      // Fallback jika belum set recovery: hitung fase serang
+      durationSec = (res.impactFrame - res.kickStartFrame) / fps;
+    } else if ((res as any).durationSeconds) {
+      durationSec = (res as any).durationSeconds;
+    }
+
+    const spd = res.calibrationAvailable && res.peakSpeedMetersPerSecond
       ? res.peakSpeedMetersPerSecond
       : 0;
+
+    return {
+      duration: durationSec,
+      peakSpeed: spd,
+      label: durationSec > 0 ? `${durationSec.toFixed(2)}s` : '-',
+    };
   });
 
-  const validValues = values.filter((v) => v > 0 && v < 35);
-  const benchmarkMax = validValues.length > 0 ? Math.max(...validValues) : 15;
-  const maxVal = Math.max(16, Math.min(25, Math.ceil(benchmarkMax * 1.2)));
+  const validDurations = cycleData.map((d) => d.duration).filter((v) => v > 0);
+  const maxBenchmark = validDurations.length > 0 ? Math.max(...validDurations) : 1.5;
+  const maxVal = Math.max(1.5, Math.ceil(maxBenchmark * 1.3 * 10) / 10);
 
   const getY = (val: number) => {
     const clampedVal = Math.min(val, maxVal);
@@ -66,23 +86,24 @@ const SessionSpeedBarChart: React.FC<{
   };
 
   return (
-    <div className="w-full bg-white border border-dark-border rounded-2xl shadow-xs p-5 flex flex-col justify-between h-full">
-      <div className="flex items-center justify-between pb-3 mb-2 border-b border-dark-border/60">
+    <div className="w-full bg-white border border-dark-border rounded-2xl shadow-xs p-4 sm:p-5 flex flex-col justify-between h-full">
+      <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-dark-border/60">
         <div>
-          <h3 className="font-bold text-dark text-sm">
-            Distribusi Kecepatan per Percobaan
+          <h3 className="font-bold text-dark text-xs sm:text-sm">
+            Durasi Siklus Tendangan (Full Cycle)
           </h3>
-          <p className="text-xs text-dark-secondary mt-0.5">
-            Pengukuran kecepatan puncak tendangan
+          <p className="text-[11px] text-dark-secondary">
+            Waktu total: angkat kaki &rarr; benturan target &rarr; kembali ke posisi semula
           </p>
         </div>
-        <span className="font-mono font-bold text-[#800000] bg-[#800000]/10 border border-[#800000]/20 px-2.5 py-1 rounded-lg text-xs">
-          Satuan: m/s
+        <span className="font-mono font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded text-[11px]">
+          Detik (s)
         </span>
       </div>
 
-      <div className="w-full aspect-[16/9] max-h-[220px] relative my-auto">
+      <div className="w-full aspect-[16/9] max-h-[200px] relative my-auto">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+          {/* Garis Grid Y Atas */}
           <line
             x1={padding.left}
             y1={getY(maxVal)}
@@ -100,9 +121,10 @@ const SessionSpeedBarChart: React.FC<{
             textAnchor="end"
             fontFamily="monospace"
           >
-            {maxVal}
+            {maxVal.toFixed(1)}s
           </text>
 
+          {/* Garis Grid Y Tengah */}
           <line
             x1={padding.left}
             y1={getY(maxVal / 2)}
@@ -119,9 +141,10 @@ const SessionSpeedBarChart: React.FC<{
             textAnchor="end"
             fontFamily="monospace"
           >
-            {(maxVal / 2).toFixed(0)}
+            {(maxVal / 2).toFixed(1)}s
           </text>
 
+          {/* Garis Sumbu X */}
           <line
             x1={padding.left}
             y1={height - padding.bottom}
@@ -147,55 +170,38 @@ const SessionSpeedBarChart: React.FC<{
             const barWidth = 24;
             const x = padding.left + idx * groupWidth + (groupWidth - barWidth) / 2;
 
-            const spdData = att.video ? speedResults[att.video.id] : null;
-            const val =
-              spdData?.calibrationAvailable && spdData?.peakSpeedMetersPerSecond
-                ? spdData.peakSpeedMetersPerSecond
-                : 0;
-
-            const isExtreme = val > maxVal;
-            const bY = getY(val);
-            const bHeight = Math.max(3, height - padding.bottom - bY);
+            const data = cycleData[idx];
+            const bY = getY(data.duration);
+            const bHeight = Math.max(4, height - padding.bottom - bY);
 
             return (
               <g key={att.id}>
-                {val > 0 && (
+                {data.duration > 0 && (
                   <rect
                     x={x}
                     y={bY}
                     width={barWidth}
                     height={bHeight}
                     rx="3"
-                    fill={isExtreme ? '#DC2626' : '#800000'}
+                    fill="#0284C7"
                     className="transition-all hover:opacity-90"
                   />
                 )}
 
-                {val > 0 ? (
-                  <text
-                    x={x + barWidth / 2}
-                    y={bY - 4}
-                    fill={isExtreme ? '#DC2626' : '#800000'}
-                    fontSize="9"
-                    textAnchor="middle"
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    {isExtreme ? `! ${val.toFixed(1)}` : `${val.toFixed(1)} m/s`}
-                  </text>
-                ) : (
-                  <text
-                    x={x + barWidth / 2}
-                    y={height - padding.bottom - 8}
-                    fill="#94A3B8"
-                    fontSize="9"
-                    textAnchor="middle"
-                    fontFamily="monospace"
-                  >
-                    -
-                  </text>
-                )}
+                {/* Nilai Durasi */}
+                <text
+                  x={x + barWidth / 2}
+                  y={data.duration > 0 ? bY - 4 : height - padding.bottom - 8}
+                  fill={data.duration > 0 ? '#0369A1' : '#94A3B8'}
+                  fontSize="8.5"
+                  textAnchor="middle"
+                  fontWeight="bold"
+                  fontFamily="monospace"
+                >
+                  {data.label}
+                </text>
 
+                {/* Label Percobaan */}
                 <text
                   x={x + barWidth / 2}
                   y={height - 18}
@@ -213,9 +219,9 @@ const SessionSpeedBarChart: React.FC<{
         </svg>
       </div>
 
-      <div className="flex items-center justify-center gap-6 text-xs font-medium text-dark-secondary pt-3 border-t border-dark-border/60">
+      <div className="flex items-center justify-center gap-6 text-[11px] font-medium text-dark-secondary pt-2.5 border-t border-dark-border/60">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-[#800000] inline-block" /> Kecepatan Puncak (Peak Speed)
+          <span className="w-2.5 h-2.5 rounded-xs bg-[#0284C7] inline-block" /> Durasi Siklus Penuh (s)
         </span>
       </div>
     </div>
@@ -235,6 +241,7 @@ export const SessionDetailPage: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState<boolean>(false);
+  const [isGlossaryOpen, setIsGlossaryOpen] = useState<boolean>(false);
 
   const [replaceTarget, setReplaceTarget] = useState<{ attemptId: string; file: File } | null>(null);
   const [deleteTargetAttemptId, setDeleteTargetAttemptId] = useState<string | null>(null);
@@ -373,47 +380,72 @@ export const SessionDetailPage: React.FC = () => {
 
   const accuracyResultsList = Object.values(accuracyResults);
 
+  const checkHasValidVideo = (att: (typeof session.attempts)[0]) => {
+    return Boolean(
+      att.video && (att.video.fileUrl || att.video.fileName || (att.video as any).fileSize)
+    );
+  };
+
+  // Helper menghitung durasi siklus penuh per percobaan
+  const getCycleDuration = (attId: string, videoId?: string) => {
+    if (!videoId || !speedResults[videoId]) return '-';
+    const res = speedResults[videoId];
+    const fps = 30;
+
+    if (res.recoveryFrame && res.kickStartFrame && res.recoveryFrame > res.kickStartFrame) {
+      const sec = (res.recoveryFrame - res.kickStartFrame) / fps;
+      return `${sec.toFixed(2)} s`;
+    }
+    if (res.impactFrame && res.kickStartFrame && res.impactFrame > res.kickStartFrame) {
+      const sec = (res.impactFrame - res.kickStartFrame) / fps;
+      return `${sec.toFixed(2)} s`;
+    }
+    return '-';
+  };
+
   return (
-    <div className="space-y-6 pb-20 md:pb-8">
-      {/* 1. HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-dark-border shadow-xs">
-        <div className="flex items-center gap-3">
+    <div className="w-full space-y-4 pb-16">
+      {/* 1. HEADER BAR (FULL WIDTH) */}
+      <div className="w-full flex items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-dark-border shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/analisis')}
             className="p-2 rounded-xl bg-slate-50 border border-dark-border text-dark-secondary hover:text-dark hover:bg-slate-100 transition-colors shrink-0"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
           </button>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base md:text-xl font-bold text-dark truncate">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-dark truncate">
                 {session.sessionCode}
-              </h2>
-              <Badge variant={session.status === 'Selesai' ? 'success' : 'neutral'}>
-                {session.status}
-              </Badge>
+              </h1>
+              <div>
+                <Badge variant={session.status === 'Selesai' ? 'success' : 'neutral'}>
+                  {session.status}
+                </Badge>
+              </div>
             </div>
-            <p className="text-xs text-dark-secondary truncate mt-0.5">
-              Tendangan Depan • {athlete ? athlete.name : session.athleteName} (Kaki {session.kickingLeg})
+            <p className="text-xs text-dark-secondary truncate">
+              {athlete ? athlete.name : session.athleteName} • Kaki {session.kickingLeg}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="primary"
             size="sm"
-            className="flex-1 sm:flex-none justify-center text-xs"
-            icon={<BarChart2 size={14} />}
+            className="h-8 px-3 text-xs"
+            icon={<BarChart2 size={13} />}
             onClick={() => navigate(`/hasil/${session.id}`)}
           >
-            Hasil Komparasi
+            Komparasi
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 sm:flex-none justify-center text-xs"
-            icon={<TargetIcon size={14} />}
+            className="h-8 px-3 text-xs"
+            icon={<TargetIcon size={13} />}
             onClick={() => setIsTargetModalOpen(true)}
           >
             {target ? 'Target Siap' : 'Atur Target'}
@@ -421,14 +453,41 @@ export const SessionDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. INFORMASI ATLET & SUMMARY */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-2 p-4">
-          <div className="grid grid-cols-2 gap-3 text-xs">
+      {/* 2. STATS & INFO TERPADU (FULL WIDTH) */}
+      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-950 text-white border-slate-800 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300">
+              Akurasi Sesi
+            </span>
+            <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded">
+              {accuracySummary ? `${accuracySummary.hitsCount}/${accuracySummary.validAttempts} HIT` : '-'}
+            </span>
+          </div>
+
+          <div className="my-2 flex items-baseline gap-2">
+            <h2 className="text-3xl font-black font-mono tracking-tight text-white">
+              {accuracySummary?.accuracyPercentage !== null && accuracySummary?.accuracyPercentage !== undefined
+                ? `${accuracySummary.accuracyPercentage.toFixed(1)}%`
+                : '-'}
+            </h2>
+            <span className="text-xs text-slate-400 font-medium">
+              ({accuracySummary?.validAttempts || 0}/{MAX_ATTEMPTS} Valid)
+            </span>
+          </div>
+
+          <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-800 flex justify-between">
+            <span>Rerata Deviasi</span>
+            <span className="text-white font-mono font-bold">
+              {accuracySummary?.averageDistanceCm ? `${accuracySummary.averageDistanceCm.toFixed(1)} cm` : '-'}
+            </span>
+          </div>
+        </Card>
+
+        <Card className="md:col-span-2 p-4 flex flex-col justify-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div>
-              <span className="text-dark-secondary flex items-center gap-1 text-[11px]">
-                <User size={12} /> Nama Atlet
-              </span>
+              <span className="text-dark-secondary text-[11px] block">Atlet</span>
               <span className="font-bold text-dark truncate block mt-0.5">
                 {athlete ? athlete.name : session.athleteName}
               </span>
@@ -438,228 +497,172 @@ export const SessionDetailPage: React.FC = () => {
             </div>
 
             <div>
-              <span className="text-dark-secondary flex items-center gap-1 text-[11px]">
-                <Calendar size={12} /> Tanggal Sesi
-              </span>
+              <span className="text-dark-secondary text-[11px] block">Tanggal Sesi</span>
               <span className="font-bold text-dark block mt-0.5">
                 {formatDate(session.date)}
               </span>
             </div>
 
             <div>
-              <span className="text-dark-secondary flex items-center gap-1 text-[11px]">
-                <Shield size={12} /> Kaki Uji
-              </span>
+              <span className="text-dark-secondary text-[11px] block">Kaki Uji</span>
               <span className="font-bold text-[#800000] block mt-0.5">
-                Tendangan {session.kickingLeg}
+                Kaki {session.kickingLeg}
               </span>
             </div>
 
             <div>
-              <span className="text-dark-secondary text-[11px] block">Target Sasaran</span>
+              <span className="text-dark-secondary text-[11px] block">Target Bidik</span>
               <span className={`font-bold block mt-0.5 ${target ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {target ? 'Terkalibrasi' : 'Belum Diatur'}
+                {target ? 'Terkalibrasi' : 'Belum Ada'}
               </span>
             </div>
           </div>
         </Card>
-
-        <Card className="flex flex-col justify-between p-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider">
-                Akurasi Sesi
-              </span>
-              <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                {accuracySummary ? `${accuracySummary.hitsCount}/${accuracySummary.validAttempts} HIT` : '-'}
-              </span>
-            </div>
-
-            <div className="mt-1 flex items-baseline gap-2">
-              <h3 className="text-2xl md:text-3xl font-bold text-dark font-mono">
-                {accuracySummary?.accuracyPercentage !== null && accuracySummary?.accuracyPercentage !== undefined
-                  ? `${accuracySummary.accuracyPercentage.toFixed(1)}%`
-                  : '-'}
-              </h3>
-              <span className="text-[11px] text-dark-secondary font-medium">
-                ({accuracySummary?.validAttempts || 0}/{MAX_ATTEMPTS} Valid)
-              </span>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-dark-secondary mt-1.5 pt-1.5 border-t border-dark-border/60">
-            Rata-rata Simpangan:{' '}
-            <b className="text-dark font-mono font-semibold">
-              {accuracySummary?.averageDistanceCm ? `${accuracySummary.averageDistanceCm.toFixed(1)} cm` : '-'}
-            </b>
-          </p>
-        </Card>
       </div>
 
-      {/* 3. MANAJEMEN UPLOAD 5 VIDEO PERCOBAAN */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs md:text-sm font-bold text-dark uppercase tracking-wider">
-            1. Rekaman Video 5 Percobaan
-          </h3>
-          <span className="text-xs text-dark-secondary">
-            Unggah rekaman video 5 kali tendangan depan atlet
-          </span>
-        </div>
+      {/* 3. GRID 5 PERCOBAAN TENDANGAN */}
+      <div className="w-full space-y-2">
+        <h2 className="text-xs font-bold text-dark uppercase tracking-wider px-1">
+          Rekaman 5 Percobaan
+        </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-          {session.attempts.map((att) => (
-            <div key={att.id} className="flex flex-col space-y-2">
-              <VideoCard
-                attempt={att}
-                onUploadSuccess={handleUploadSuccess}
-                onDeleteVideo={async () => {
-                  await videoStorageService.deleteVideoBlob(att.id);
-                  if (att.video) await videoStorageService.deleteVideoBlob(att.video.id);
-                  await sessionService.removeAttemptVideo(session.id, att.id);
-                  fetchSessionAndData();
-                }}
-                onAskReplace={(attemptId, file) => setReplaceTarget({ attemptId, file })}
-                onAskDelete={(attemptId) => setDeleteTargetAttemptId(attemptId)}
-              />
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {session.attempts.map((att) => {
+            const hasVideo = checkHasValidVideo(att);
 
-              {att.video && (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className="w-full text-xs"
-                  icon={<Zap size={13} />}
-                  onClick={() => navigate(`/analisis/${session.id}/attempt/${att.id}`)}
-                >
-                  Buka Analisis #{att.attemptNumber}
-                </Button>
-              )}
-            </div>
-          ))}
+            return (
+              <div key={att.id} className="flex flex-col space-y-2 bg-white p-2.5 rounded-xl border border-dark-border/80 shadow-xs">
+                <VideoCard
+                  attempt={att}
+                  onUploadSuccess={handleUploadSuccess}
+                  onDeleteVideo={async () => {
+                    await videoStorageService.deleteVideoBlob(att.id);
+                    if (att.video) await videoStorageService.deleteVideoBlob(att.video.id);
+                    await sessionService.removeAttemptVideo(session.id, att.id);
+                    fetchSessionAndData();
+                  }}
+                  onAskReplace={(attemptId, file) => setReplaceTarget({ attemptId, file })}
+                  onAskDelete={(attemptId) => setDeleteTargetAttemptId(attemptId)}
+                  onOpenAnalysis={hasVideo ? () => navigate(`/analisis/${session.id}/attempt/${att.id}`) : undefined}
+                />
+
+                {hasVideo && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="w-full text-xs h-8 font-semibold"
+                    icon={<Zap size={12} />}
+                    onClick={() => navigate(`/analisis/${session.id}/attempt/${att.id}`)}
+                  >
+                    Analisis #{att.attemptNumber}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* 4. TABEL REKAPITULASI 5 PERCOBAAN */}
-      <Card
-        title="2. Rekapitulasi Data Hasil Pengukuran"
-        subtitle="Rincian parameter kinematika dan presisi sasaran per percobaan"
-      >
+      {/* 4. TABEL REKAPITULASI PARAMETER KINEMATIKA LENGKAP */}
+      <Card className="w-full p-0 overflow-hidden border-dark-border/80 shadow-xs">
+        <div className="px-4 py-3 border-b border-dark-border/60 bg-slate-50/50 flex items-center justify-between">
+          <h2 className="text-xs sm:text-sm font-bold text-dark">
+            Rekapitulasi Parameter Kinematika & Biomekanika
+          </h2>
+          <span className="text-[11px] text-dark-secondary font-mono">Full Cycle & Accuracy</span>
+        </div>
+
         <div className="w-full overflow-x-auto">
-          <table className="w-full text-left text-sm text-dark">
-            <thead className="bg-slate-50 border-b border-dark-border text-xs uppercase font-semibold text-dark-secondary tracking-wider">
+          <table className="w-full text-left text-xs text-dark">
+            <thead className="bg-slate-50 border-b border-dark-border text-[11px] uppercase font-semibold text-dark-secondary">
               <tr>
-                <th className="px-5 py-3.5">Percobaan</th>
-                <th className="px-5 py-3.5">
-                  <span className="flex items-center gap-1">
-                    Impact Frame
-                    <span title="Frame video saat ujung kaki membentur sasaran target">
-                      <HelpCircle size={12} className="text-slate-400" />
-                    </span>
-                  </span>
-                </th>
-                <th className="px-5 py-3.5">
-                  <span className="flex items-center gap-1">
-                    Kecepatan Puncak
-                    <span title="Kecepatan lecutan maksimal kaki sesaat sebelum menyentuh target">
-                      <HelpCircle size={12} className="text-slate-400" />
-                    </span>
-                  </span>
-                </th>
-                <th className="px-5 py-3.5">
-                  <span className="flex items-center gap-1">
-                    Jarak Sasaran
-                    <span title="Jarak simpangan meleset dari titik pusat target">
-                      <HelpCircle size={12} className="text-slate-400" />
-                    </span>
-                  </span>
-                </th>
-                <th className="px-5 py-3.5">
-                  <span className="flex items-center gap-1">
-                    Status Sasaran
-                    <span title="HIT jika titik perkenaan berada di dalam bidang target">
-                      <HelpCircle size={12} className="text-slate-400" />
-                    </span>
-                  </span>
-                </th>
-                <th className="px-5 py-3.5 text-right">Aksi</th>
+                <th className="px-4 py-3">Percobaan</th>
+                <th className="px-4 py-3">Durasi Siklus Penuh</th>
+                <th className="px-4 py-3">Kecepatan Puncak</th>
+                <th className="px-4 py-3">Deviasi Sasaran</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-dark-border/60">
+            <tbody className="divide-y divide-dark-border/50">
               {session.attempts.map((att) => {
-                const spd = att.video && att.video.id ? speedResults[att.video.id] : null;
-                const acc = att.video && att.video.id ? accuracyResults[att.video.id] : null;
+                const hasVideo = checkHasValidVideo(att);
+                const spd = hasVideo && att.video ? speedResults[att.video.id] : null;
+                const acc = hasVideo && att.video ? accuracyResults[att.video.id] : null;
 
                 const isHit = acc?.finalResult === 'hit';
                 const isMiss = acc?.finalResult === 'miss';
                 const isInvalid = acc?.finalResult === 'invalid';
 
                 return (
-                  <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-5 py-4 font-bold text-dark flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-slate-100 border border-dark-border flex items-center justify-center text-xs font-mono">
+                  <tr key={att.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 font-bold text-dark flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-slate-100 border border-dark-border flex items-center justify-center text-[10px] font-mono">
                         {att.attemptNumber}
                       </span>
-                      <span>Percobaan #{att.attemptNumber}</span>
+                      <span>#{att.attemptNumber}</span>
                     </td>
-                    <td className="px-5 py-4 font-mono text-dark-secondary text-xs">
-                      {spd && spd.impactFrame !== undefined && spd.impactFrame !== null ? (
-                        <span className="bg-slate-100 px-2 py-1 rounded border border-dark-border font-semibold text-dark">
-                          Frame {spd.impactFrame}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
+
+                    {/* Kolom Durasi Siklus Penuh (Detik) */}
+                    <td className="px-4 py-3 font-mono font-bold text-sky-700">
+                      {hasVideo ? getCycleDuration(att.id, att.video?.id) : '-'}
                     </td>
-                    <td className="px-5 py-4 font-mono font-bold text-[#800000] text-sm">
+
+                    {/* Kolom Kecepatan Puncak */}
+                    <td className="px-4 py-3 font-mono font-bold text-[#800000]">
                       {spd ? (
-                        spd.calibrationAvailable && spd.peakSpeedMetersPerSecond !== null && spd.peakSpeedMetersPerSecond !== undefined ? (
-                          <span>{spd.peakSpeedMetersPerSecond.toFixed(2)} <span className="text-xs font-normal text-dark-secondary">m/s</span></span>
+                        spd.calibrationAvailable && spd.peakSpeedMetersPerSecond ? (
+                          <span>{spd.peakSpeedMetersPerSecond.toFixed(1)} <span className="text-[10px] font-normal text-dark-secondary">m/s</span></span>
                         ) : (
-                          <span>{spd.peakSpeedPixelsPerSecond.toFixed(0)} <span className="text-xs font-normal text-dark-secondary">px/s</span></span>
+                          <span>{spd.peakSpeedPixelsPerSecond.toFixed(0)} <span className="text-[10px] font-normal text-dark-secondary">px/s</span></span>
                         )
                       ) : (
-                        <span className="text-dark-secondary text-xs font-normal">-</span>
+                        <span className="text-dark-secondary font-normal">-</span>
                       )}
                     </td>
-                    <td className="px-5 py-4 font-mono text-dark font-medium">
+
+                    {/* Kolom Deviasi Sasaran */}
+                    <td className="px-4 py-3 font-mono text-dark font-medium">
                       {acc ? (
                         acc.distanceCentimeters !== null && acc.distanceCentimeters !== undefined ? (
-                          <span className="text-sm font-semibold">{acc.distanceCentimeters.toFixed(1)} cm</span>
+                          <span className="font-semibold">{acc.distanceCentimeters.toFixed(1)} cm</span>
                         ) : (
-                          <span className="text-xs text-dark-secondary">{acc.distancePixels?.toFixed(1)} px</span>
+                          <span className="text-dark-secondary">{acc.distancePixels?.toFixed(1)} px</span>
                         )
                       ) : (
-                        <span className="text-dark-secondary text-xs">-</span>
+                        <span className="text-dark-secondary">-</span>
                       )}
                     </td>
-                    <td className="px-5 py-4">
+
+                    <td className="px-4 py-3">
                       {isHit && (
-                        <span className="inline-flex items-center gap-1.5 text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-bold text-xs">
-                          <CheckCircle2 size={14} className="text-emerald-600" /> HIT
+                        <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold text-[10px]">
+                          <CheckCircle2 size={12} /> HIT
                         </span>
                       )}
                       {isMiss && (
-                        <span className="inline-flex items-center gap-1.5 text-rose-800 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full font-bold text-xs">
-                          <XCircle size={14} className="text-rose-600" /> MISS
+                        <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold text-[10px]">
+                          <XCircle size={12} /> MISS
                         </span>
                       )}
                       {isInvalid && (
-                        <span className="inline-flex items-center gap-1.5 text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full font-semibold text-xs">
-                          <AlertCircle size={14} className="text-amber-600" /> INVALID
+                        <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-semibold text-[10px]">
+                          <AlertCircle size={12} /> INVALID
                         </span>
                       )}
-                      {!acc && <span className="text-dark-secondary text-xs">Belum Dianalisis</span>}
+                      {!acc && <span className="text-dark-secondary text-[10px]">Belum Ada</span>}
                     </td>
-                    <td className="px-5 py-4 text-right">
-                      {att.video ? (
+
+                    <td className="px-4 py-3 text-right">
+                      {hasVideo ? (
                         <button
                           onClick={() => navigate(`/analisis/${session.id}/attempt/${att.id}`)}
-                          className="font-bold text-[#800000] hover:underline inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-[#800000]/20 bg-[#800000]/5 transition-all"
+                          className="font-semibold text-[#800000] hover:underline inline-flex items-center gap-0.5 text-[11px]"
                         >
-                          Review <ArrowUpRight size={13} />
+                          Review <ArrowUpRight size={12} />
                         </button>
                       ) : (
-                        <span className="text-dark-secondary text-xs">-</span>
+                        <span className="text-dark-secondary">-</span>
                       )}
                     </td>
                   </tr>
@@ -670,134 +673,68 @@ export const SessionDetailPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 5. DUA GRAFIK SEJAJAR: KECEPATAN & SIMPANGAN SASARAN */}
-      <div className="space-y-2">
-        <h3 className="text-xs md:text-sm font-bold text-dark uppercase tracking-wider px-1">
-          3. Visualisasi Hasil Pengukuran
-        </h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-stretch">
-          <SessionSpeedBarChart
-            attempts={session.attempts}
-            speedResults={speedResults}
-          />
-          <AccuracyDistanceChart results={accuracyResultsList} />
-        </div>
+      {/* 5. VISUALISASI DUA GRAFIK (GRAFIK 1: DURASI SIKLUS PENUH, GRAFIK 2: SIMPANGAN TARGET) */}
+      <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+        <SessionDurationBarChart
+          attempts={session.attempts}
+          speedResults={speedResults}
+        />
+        <AccuracyDistanceChart results={accuracyResultsList} />
       </div>
 
-      {/* 6. GLOSARIUM KETERANGAN METRIK BIOMEKANIKA DI PALING BAWAH */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-850 to-slate-900 text-white rounded-3xl p-5 md:p-6 shadow-md border border-slate-800">
-        <div className="absolute -right-10 -top-10 w-40 h-40 bg-[#800000]/30 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute left-1/3 -bottom-10 w-48 h-48 bg-[#FACC15]/10 rounded-full blur-3xl pointer-events-none" />
+      {/* 6. GLOSARIUM */}
+      <div className="w-full bg-slate-900 text-white rounded-xl border border-slate-800 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIsGlossaryOpen(!isGlossaryOpen)}
+          className="w-full px-4 py-3 flex items-center justify-between text-xs font-bold text-slate-200 hover:bg-slate-800/60 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <HelpCircle size={15} className="text-amber-300" />
+            Panduan & Definisi Protokol Pengujian Pencak Silat
+          </span>
+          {isGlossaryOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
 
-        <div className="relative z-10 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#800000] text-[#FACC15] flex items-center justify-center font-bold shadow-xs">
-                <HelpCircle size={18} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
-                  Glosarium & Panduan Metrik Kinematika
-                  <span className="text-[10px] font-mono bg-[#FACC15] text-slate-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    Biomekanika
-                  </span>
-                </h4>
-                <p className="text-xs text-white/60">
-                  Penjelasan parameter uji tendangan depan pencak silat pasca-cedera
-                </p>
-              </div>
-            </div>
-            <span className="text-[11px] font-mono text-white/40 self-start sm:self-auto">
-              SILAT MOTION Protocol
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
-            {/* 1. Durasi */}
-            <div className="relative overflow-hidden bg-white/5 hover:bg-white/[0.08] transition-all border border-white/10 rounded-2xl p-4 flex flex-col justify-between group">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <Clock size={14} className="text-[#FACC15]" /> Durasi Gerak
-                  </span>
-                  <span className="text-[10px] font-mono text-white/50 bg-white/10 px-1.5 py-0.5 rounded">
-                    Waktu (s)
-                  </span>
-                </div>
-                <p className="text-[11px] text-white/70 leading-relaxed">
-                  Waktu aktif sejak tungkai mulai diangkat hingga ujung kaki membentur sasaran. Durasi singkat mengindikasikan kelancaran fase serang tanpa hambatan ragu.
-                </p>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-white/50">
-                <span>Formula</span>
-                <span className="text-white/80 font-bold">Δt = Impact - Start</span>
-              </div>
+        {isGlossaryOpen && (
+          <div className="p-4 pt-1 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 space-y-1">
+              <span className="font-bold text-sky-400 flex items-center gap-1 text-[11px]">
+                <Clock size={12} /> Durasi Siklus Penuh
+              </span>
+              <p className="text-[11px] text-slate-300">
+                Waktu tempuh dari posisi pasang awal, perkenaan sasaran, hingga kaki tumpu kembali ke lantai (detik).
+              </p>
             </div>
 
-            {/* 2. Peak Speed */}
-            <div className="relative overflow-hidden bg-white/5 hover:bg-white/[0.08] transition-all border border-white/10 rounded-2xl p-4 flex flex-col justify-between group">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <Zap size={14} className="text-[#FACC15]" /> Peak Speed
-                  </span>
-                  <span className="text-[10px] font-mono text-amber-300 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded font-bold">
-                    Kecepatan (m/s)
-                  </span>
-                </div>
-                <p className="text-[11px] text-white/70 leading-relaxed">
-                  Kecepatan linear tertinggi pergelangan kaki tepat menjelang benturan sasaran. Mencerminkan daya ledak otot ekstensi tungkai pasca-rehabilitasi.
-                </p>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-white/50">
-                <span>Karakteristik</span>
-                <span className="text-[#FACC15] font-bold">Lecutan Maksimal</span>
-              </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 space-y-1">
+              <span className="font-bold text-amber-300 flex items-center gap-1 text-[11px]">
+                <Zap size={12} /> Kecepatan Puncak
+              </span>
+              <p className="text-[11px] text-slate-300">
+                Lecutan linear tertinggi ujung kaki sesaat sebelum perkenaan (m/s).
+              </p>
             </div>
 
-            {/* 3. Simpangan Target */}
-            <div className="relative overflow-hidden bg-white/5 hover:bg-white/[0.08] transition-all border border-white/10 rounded-2xl p-4 flex flex-col justify-between group">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <TargetIcon size={14} className="text-rose-400" /> Simpangan Sasaran
-                  </span>
-                  <span className="text-[10px] font-mono text-white/50 bg-white/10 px-1.5 py-0.5 rounded">
-                    Jarak (cm)
-                  </span>
-                </div>
-                <p className="text-[11px] text-white/70 leading-relaxed">
-                  Deviasi jarak linear titik benturan kaki terhadap pusat target bidik. Semakin kecil nilainya, semakin presisi kontrol motorik tungkai atlet.
-                </p>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-white/50">
-                <span>Pengukuran</span>
-                <span className="text-white/80 font-bold">Jarak Euclidean (d)</span>
-              </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 space-y-1">
+              <span className="font-bold text-amber-300 flex items-center gap-1 text-[11px]">
+                <TargetIcon size={12} /> Deviasi Sasaran
+              </span>
+              <p className="text-[11px] text-slate-300">
+                Jarak Euclidean simpangan titik impak ke titik tengah target sasaran (cm).
+              </p>
             </div>
 
-            {/* 4. Status Akurasi */}
-            <div className="relative overflow-hidden bg-white/5 hover:bg-white/[0.08] transition-all border border-white/10 rounded-2xl p-4 flex flex-col justify-between group">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                    <CheckCircle2 size={14} className="text-emerald-400" /> Status Akurasi
-                  </span>
-                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-400/10 border border-emerald-400/20 px-1.5 py-0.5 rounded font-bold">
-                    HIT / MISS
-                  </span>
-                </div>
-                <p className="text-[11px] text-white/70 leading-relaxed">
-                  <b className="text-emerald-400">HIT</b> jika impak masuk dalam radius target yang ditentukan. <b className="text-rose-400">MISS</b> jika meleset ke luar bidang sasaran.
-                </p>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-white/50">
-                <span>Kriteria</span>
-                <span className="text-emerald-400 font-bold">Presisi Target</span>
-              </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-800 space-y-1">
+              <span className="font-bold text-emerald-400 flex items-center gap-1 text-[11px]">
+                <CheckCircle2 size={12} /> Evaluasi Bidik
+              </span>
+              <p className="text-[11px] text-slate-300">
+                Status HIT jika perkenaan berada di dalam radius toleransi sasaran.
+              </p>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Modals */}

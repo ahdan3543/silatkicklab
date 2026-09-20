@@ -16,9 +16,9 @@ export const AppLayout: React.FC = () => {
           <Navbar />
         </div>
 
-        {/* Padding responsif: di HP p-3 sm:p-4, di desktop p-6 lg:p-8 */}
-        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 w-full overflow-y-auto">
-          <div className="w-full max-w-7xl mx-auto">
+        {/* Padding responsif: di HP p-3 sm:p-4, di desktop p-4 md:p-6 w-full penuh tanpa max-w-7xl */}
+        <main className="flex-1 p-3 sm:p-4 md:p-6 w-full overflow-y-auto">
+          <div className="w-full">
             <Outlet />
           </div>
         </main>
