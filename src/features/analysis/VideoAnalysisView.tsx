@@ -16,12 +16,15 @@ import {
   Maximize2,
   Minimize2,
   X,
+  Eye,
+  Layers,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { PoseCanvasOverlay } from './PoseCanvasOverlay';
+import { Pose3DOverlay } from './Pose3DOverlay';
 import { TargetOverlay } from './TargetOverlay';
 import { VelocityChart } from './VelocityChart';
 import { CalibrationModal } from './CalibrationModal';
@@ -61,6 +64,11 @@ export const VideoAnalysisView: React.FC = () => {
   const [videoDims, setVideoDims] = useState<{ width: number; height: number }>({ width: 640, height: 360 });
   const [isExpandedView, setIsExpandedView] = useState<boolean>(false);
 
+  // Visual Layer Controls (Default: Video ON, 3D ON, Skeleton OFF)
+  const [showVideo, setShowVideo] = useState<boolean>(true);
+  const [show3DMannequin, setShow3DMannequin] = useState<boolean>(true);
+  const [showSkeleton, setShowSkeleton] = useState<boolean>(false);
+
   // Pose Engine States
   const [analysisStatus, setAnalysisStatus] = useState<PoseAnalysisStatus>('idle');
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -78,7 +86,7 @@ export const VideoAnalysisView: React.FC = () => {
   const [isTargetSetupOpen, setIsTargetSetupOpen] = useState<boolean>(false);
   const [currentFrameNum, setCurrentFrameNum] = useState<number>(1);
 
-  // 1. Muat Sesi, Video, Pose, Speed, & Target Data[cite: 2]
+  // 1. Muat Sesi, Video, Pose, Speed, & Target Data
   useEffect(() => {
     let activeObjectUrl: string | null = null;
 
@@ -134,7 +142,7 @@ export const VideoAnalysisView: React.FC = () => {
     };
   }, [sessionId, attemptId]);
 
-  // 2. Sinkronisasi Pose Saat Video Diputar[cite: 2]
+  // 2. Sinkronisasi Pose Saat Video Diputar
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const t = videoRef.current.currentTime;
@@ -162,7 +170,7 @@ export const VideoAnalysisView: React.FC = () => {
     setVideoDims({ width: v.videoWidth || 640, height: v.videoHeight || 360 });
   };
 
-  // 3. Eksekusi Analisis Kecepatan & Akurasi Terpadu[cite: 2]
+  // 3. Eksekusi Analisis Kecepatan & Akurasi Terpadu
   const triggerSpeedAndAccuracy = async (
     currentPose: PoseAnalysisResult,
     dominantLeg: 'Kanan' | 'Kiri',
@@ -213,7 +221,6 @@ export const VideoAnalysisView: React.FC = () => {
     await speedStorageService.saveSpeedResult(fullSpeedResult);
     setSpeedResult(fullSpeedResult);
 
-    // Hitung Akurasi Strictly dari accuracyCalculationEngine[cite: 2]
     if (activeTarget) {
       const calculatedAccuracy = accuracyCalculationEngine.calculateAccuracy(
         activeTarget,
@@ -416,13 +423,14 @@ export const VideoAnalysisView: React.FC = () => {
     ? (((target as any).radiusNormalized ?? (target as any).radius ?? 0.05) * 100).toFixed(1)
     : '0.0';
 
-  // Sub-komponen Player & Kontrol yang dipakai di mode normal maupun mode besar
+  // Sub-komponen Player & Kontrol (Mendukung Layer Mannequin 3D)
   const renderVideoPlayerBlock = () => (
     <div className="space-y-3">
-      {/* Box Video & Pose Canvas */}
+      {/* Box Video & Multilayer Overlay */}
       <div className="relative aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center shadow-inner">
         {videoUrl ? (
           <>
+            {/* LAYER 1: VIDEO ATLET (Dapat Disembunyikan untuk Mode 3D Analysis) */}
             <video
               ref={videoRef}
               src={videoUrl}
@@ -431,13 +439,31 @@ export const VideoAnalysisView: React.FC = () => {
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onEnded={() => setIsPlaying(false)}
-              className="w-full h-full object-contain"
+              className={`w-full h-full object-contain transition-opacity duration-200 ${
+                showVideo ? 'opacity-100' : 'opacity-0'
+              }`}
             />
-            <PoseCanvasOverlay
+
+            {/* LAYER 2: 3D MANNEQUIN BIOMEKANIKA (Three.js) */}
+            <Pose3DOverlay
               currentFramePose={currentFramePose}
               videoWidth={videoDims.width}
               videoHeight={videoDims.height}
+              isImpactFrame={isAtImpactFrame}
+              kickingLeg={session.kickingLeg}
+              showMannequin={show3DMannequin}
             />
+
+            {/* LAYER 3: SKELETON 2D LAMA (MODE DEBUG / REFERENCE) */}
+            {showSkeleton && (
+              <PoseCanvasOverlay
+                currentFramePose={currentFramePose}
+                videoWidth={videoDims.width}
+                videoHeight={videoDims.height}
+              />
+            )}
+
+            {/* LAYER 4: TARGET OVERLAY */}
             <TargetOverlay
               target={target}
               accuracyResult={accuracyResult}
@@ -464,7 +490,7 @@ export const VideoAnalysisView: React.FC = () => {
         )}
       </div>
 
-      {/* Kontrol Pemutar Lengkap (Selalu Ada) */}
+      {/* Kontrol Pemutar Lengkap + Bilah Mode Visualisasi 3D */}
       <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-white space-y-2.5">
         {/* Seekbar Time slider */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -510,6 +536,44 @@ export const VideoAnalysisView: React.FC = () => {
               className="p-2 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white transition-colors text-xs flex items-center gap-1"
             >
               Frame <ChevronRight size={14} />
+            </button>
+          </div>
+
+          {/* Toggle Layer Visualisasi: Video, 3D Mannequin, & Skeleton */}
+          <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setShowVideo(!showVideo)}
+              className={`px-2 py-1 rounded font-medium transition-colors ${
+                showVideo ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Tampilkan / Sembunyikan Video Asli"
+            >
+              Video: {showVideo ? 'ON' : 'OFF'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShow3DMannequin(!show3DMannequin)}
+              className={`px-2 py-1 rounded font-semibold transition-colors flex items-center gap-1 ${
+                show3DMannequin
+                  ? 'bg-[#800000] text-[#FACC15]'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Tampilkan / Sembunyikan Mannequin 3D"
+            >
+              <Layers size={11} /> 3D: {show3DMannequin ? 'ON' : 'OFF'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowSkeleton(!showSkeleton)}
+              className={`px-2 py-1 rounded font-medium transition-colors ${
+                showSkeleton ? 'bg-slate-700 text-emerald-400' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Tampilkan / Sembunyikan Kerangka Garis 2D"
+            >
+              Skeleton: {showSkeleton ? 'ON' : 'OFF'}
             </button>
           </div>
 
