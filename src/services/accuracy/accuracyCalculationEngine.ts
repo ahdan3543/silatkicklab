@@ -189,9 +189,10 @@ export const accuracyCalculationEngine = {
       }
     }
 
-    if (distanceCm === null || distanceCm === undefined || isNaN(distanceCm)) {
-      // Fallback estimasi metrik real-world jika belum kalibrasi
-      distanceCm = Number(((distancePixels / minDimension) * 180).toFixed(1));
+    // Tidak ada estimasi antropometrik. Nilai centimeter hanya boleh
+    // ditampilkan jika skala pixel → meter sudah dikalibrasi.
+    if (distanceCm !== null && isNaN(distanceCm)) {
+      distanceCm = null;
     }
 
     return {

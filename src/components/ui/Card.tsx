@@ -1,32 +1,3 @@
 import React from 'react';
-
-interface CardProps {
-  title?: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  headerAction?: React.ReactNode;
-  className?: string;
-}
-
-export const Card: React.FC<CardProps> = ({
-  title,
-  subtitle,
-  children,
-  headerAction,
-  className = '',
-}) => {
-  return (
-    <div className={`bg-surface-card rounded-xl border border-dark-border p-6 shadow-subtle ${className}`}>
-      {(title || headerAction) && (
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-dark-border/60">
-          <div>
-            {title && <h3 className="text-base font-semibold text-dark">{title}</h3>}
-            {subtitle && <p className="text-xs text-dark-secondary mt-0.5">{subtitle}</p>}
-          </div>
-          {headerAction && <div>{headerAction}</div>}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-};
+interface CardProps{title?:string;subtitle?:string;children:React.ReactNode;headerAction?:React.ReactNode;className?:string}
+export const Card:React.FC<CardProps>=({title,subtitle,children,headerAction,className=''})=><div className={`bg-white/95 rounded-2xl border border-slate-200/80 p-5 shadow-[0_8px_24px_rgba(15,23,42,.045)] ${className}`}>{(title||headerAction)&&<div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100"><div>{title&&<h3 className="text-[13px] font-extrabold tracking-tight text-slate-900">{title}</h3>}{subtitle&&<p className="text-[10px] text-slate-400 mt-1">{subtitle}</p>}</div>{headerAction&&<div>{headerAction}</div>}</div>}{children}</div>;

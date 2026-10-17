@@ -40,7 +40,8 @@ export interface SpeedAnalysisResult {
   impactTimestamp: number;
   recoveryTimestamp: number;
 
-  kickDuration: number; // Detik (Impact - Start)
+  fps: number; // FPS video yang digunakan untuk perhitungan waktu
+  kickDuration: number; // Detik (Frame Kontak - Frame Awal) / FPS
 
   // Pixel Metrics
   footDisplacementPixels: number;
@@ -52,7 +53,7 @@ export interface SpeedAnalysisResult {
   calibration?: CalibrationData;
   metersPerPixel: number | null;
 
-  // Physical Metrics (Hanya ada jika terkalibrasi)
+  // Physical Metrics (dihitung setelah kalibrasi pixel → meter)
   footDisplacementMeters: number | null;
   peakSpeedMetersPerSecond: number | null;
   averageSpeedMetersPerSecond: number | null;

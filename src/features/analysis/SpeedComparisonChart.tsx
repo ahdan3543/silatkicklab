@@ -123,7 +123,7 @@ export const SpeedComparisonChart: React.FC<SpeedComparisonChartProps> = ({
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 text-[11px] font-mono text-slate-300 mt-2 border-t border-slate-800/80 pt-2">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 bg-primary rounded-sm inline-block" /> Kecepatan Puncak (Peak)
+          <span className="w-2.5 h-2.5 bg-primary rounded-sm inline-block" /> Kecepatan Tendangan (Peak)
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 bg-accent rounded-sm inline-block" /> Kecepatan Rata-Rata

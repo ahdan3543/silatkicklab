@@ -390,7 +390,7 @@ export const SessionDetailPage: React.FC = () => {
   const getCycleDuration = (attId: string, videoId?: string) => {
     if (!videoId || !speedResults[videoId]) return '-';
     const res = speedResults[videoId];
-    const fps = 30;
+    const fps = res.fps || 60;
 
     if (res.recoveryFrame && res.kickStartFrame && res.recoveryFrame > res.kickStartFrame) {
       const sec = (res.recoveryFrame - res.kickStartFrame) / fps;

@@ -16,33 +16,15 @@ import { AnalysisReport } from '../types/report';
 import { formatDate } from '../utils/formatters';
 import { MergedAttemptResult } from '../services/result/sessionSummaryEngine';
 
-// Logo UPI Resmi dari Google Drive dengan Fallback Vektor
-const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) => {
-  const [hasError, setHasError] = useState(false);
-
-  if (hasError) {
-    return (
-      <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="50" r="48" fill="#800000" stroke="#F59E0B" strokeWidth="3" />
-        <circle cx="50" cy="38" fill="#FFFFFF" />
-        <path d="M50 16 L58 34 L78 36 L64 50 L68 70 L50 60 L32 70 L36 50 L22 36 L42 34 Z" fill="#800000" />
-        <circle cx="50" cy="50" r="13" fill="#F59E0B" />
-        <circle cx="50" cy="50" r="9" fill="#800000" />
-        <text x="50" y="86" fontSize="9" fontWeight="900" fill="#FFFFFF" textAnchor="middle" fontFamily="sans-serif">UPI</text>
-      </svg>
-    );
-  }
-
-  return (
-    <img
-      src="https://lh3.googleusercontent.com/d/196_EpzcqTAhpRq7lb-e3dITxelXnpxmR"
-      alt="Logo Universitas Pendidikan Indonesia"
-      onError={() => setHasError(true)}
-      className={`${className} object-contain shrink-0`}
-      loading="eager"
-    />
-  );
-};
+// Logo UPI lokal untuk laporan PDF
+const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) => (
+  <img
+    src="/upi-logo.png"
+    alt="Logo Universitas Pendidikan Indonesia"
+    className={`${className} object-contain shrink-0`}
+    loading="eager"
+  />
+);
 
 // Komponen Grafik Cetak Terpadu (Tema Sport Light Academic)
 const UnifiedPerformanceChart: React.FC<{
@@ -56,7 +38,7 @@ const UnifiedPerformanceChart: React.FC<{
 
   // Filter outlier agar skala grafik tetap proporsional
   const normalSpeeds = (attempts || [])
-    .map((a) => a?.peakSpeed || 0)
+    .map((a) => a?.averageSpeed || 0)
     .filter((v) => v > 0 && v < 35);
   const benchmarkMaxSpeed = normalSpeeds.length > 0 ? Math.max(...normalSpeeds) : 15;
   const maxSpeed = Math.max(16, Math.min(25, Math.ceil(benchmarkMaxSpeed * 1.25)));
@@ -80,7 +62,7 @@ const UnifiedPerformanceChart: React.FC<{
         </span>
         <div className="flex items-center gap-4 text-[11px] font-sans">
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-[#800000] rounded-sm inline-block" /> Kecepatan Puncak ({speedUnit})
+            <span className="w-2.5 h-2.5 bg-[#800000] rounded-sm inline-block" /> Kecepatan Tendangan ({speedUnit})
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 bg-[#FACC15] border border-amber-400 rounded-sm inline-block" /> Simpangan Sasaran ({distUnit})
@@ -154,7 +136,7 @@ const UnifiedPerformanceChart: React.FC<{
           const speedX = startX + groupWidth / 2 - barWidth - 3;
           const distX = startX + groupWidth / 2 + 3;
 
-          const spdVal = att?.peakSpeed || 0;
+          const spdVal = att?.averageSpeed || 0;
           const isExtreme = spdVal > maxSpeed;
           const sY = getSpeedY(spdVal);
           const sHeight = Math.max(2, height - padding.bottom - sY);
@@ -165,7 +147,7 @@ const UnifiedPerformanceChart: React.FC<{
 
           return (
             <g key={att?.attemptId || idx}>
-              {/* Batang Peak Speed (Maroon UPI) */}
+              {/* Batang Kecepatan Tendangan */}
               <rect
                 x={speedX}
                 y={sY}
@@ -423,7 +405,7 @@ export const AnalysisReportPage: React.FC = () => {
           </div>
 
           <div className="p-2 border border-dark-border rounded-lg bg-slate-50">
-            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Avg Speed Sesi</span>
+            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Kecepatan Rata-Rata Sesi</span>
             <span className="text-xl font-bold font-mono text-dark mt-0.5 block">
               {summary?.sessionAverageSpeed !== null && summary?.sessionAverageSpeed !== undefined
                 ? `${summary.sessionAverageSpeed.toFixed(2)}`
@@ -433,7 +415,7 @@ export const AnalysisReportPage: React.FC = () => {
           </div>
 
           <div className="p-2 border border-dark-border rounded-lg bg-slate-50">
-            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Avg Durasi Kick</span>
+            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Waktu Tempuh Rata-Rata</span>
             <span className="text-xl font-bold font-mono text-dark mt-0.5 block">
               {summary?.sessionAverageDuration !== null && summary?.sessionAverageDuration !== undefined
                 ? `${summary.sessionAverageDuration.toFixed(2)} s`
@@ -451,8 +433,7 @@ export const AnalysisReportPage: React.FC = () => {
                 <tr>
                   <th className="px-3 py-1.5">Percobaan</th>
                   <th className="px-3 py-1.5">Durasi</th>
-                  <th className="px-3 py-1.5">Peak Speed</th>
-                  <th className="px-3 py-1.5">Avg Speed</th>
+                  <th className="px-3 py-1.5">Kecepatan Tendangan</th>
                   <th className="px-3 py-1.5">Simpangan Target</th>
                   <th className="px-3 py-1.5">Status</th>
                 </tr>
@@ -462,11 +443,8 @@ export const AnalysisReportPage: React.FC = () => {
                   <tr key={att.attemptId} className="text-dark">
                     <td className="px-3 py-1.5 font-bold">Percobaan #{att.attemptNumber}</td>
                     <td className="px-3 py-1.5">{att.kickDuration ? `${att.kickDuration.toFixed(2)} s` : '-'}</td>
-                    <td className="px-3 py-1.5 font-bold text-primary">
-                      {att.peakSpeed !== null ? `${att.peakSpeed.toFixed(2)} ${speedUnit}` : '-'}
-                    </td>
                     <td className="px-3 py-1.5">
-                      {att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${speedUnit}` : '-'}
+                      {att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${speedUnit}` : 'Kalibrasi diperlukan'}
                     </td>
                     <td className="px-3 py-1.5">
                       {att.distanceToTargetCm !== null

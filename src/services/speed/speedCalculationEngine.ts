@@ -308,14 +308,18 @@ export const speedCalculationEngine = {
     impactFrame: number,
     recoveryFrame: number,
     calibration?: CalibrationData,
-    method: 'automatic' | 'manual-corrected' = 'automatic'
+    method: 'automatic' | 'manual-corrected' = 'automatic',
+    fps: number = 60
   ): Omit<SpeedAnalysisResult, 'id' | 'videoId' | 'attemptId' | 'trackingPoint' | 'createdAt'> => {
     const startPoint = trajectory.find((p) => p.frameNumber === startFrame) || trajectory[0];
     const extPoint = trajectory.find((p) => p.frameNumber === extensionFrame) || startPoint;
     const impactPoint = trajectory.find((p) => p.frameNumber === impactFrame) || trajectory[trajectory.length - 1];
     const recPoint = trajectory.find((p) => p.frameNumber === recoveryFrame) || impactPoint;
 
-    const kickDuration = Math.max(0.01, impactPoint.timestamp - startPoint.timestamp);
+    // Waktu penelitian: selisih frame awal dan frame kontak dibagi FPS video.
+    // Ini sengaja menggunakan nomor frame agar sesuai dengan prosedur penelitian.
+    const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 60;
+    const kickDuration = Math.max(0.001, (impactFrame - startFrame) / safeFps);
 
     // Filter interval gerakan tendangan utama
     const activeRange = trajectory.filter(
@@ -336,7 +340,8 @@ export const speedCalculationEngine = {
     }
     const averageSpeedPixelsPerSecond = footDisplacementPixels / kickDuration;
 
-    // Metrik Fisik (Hanya jika terkalibrasi)
+    // Metrik fisik hanya dihitung setelah skala pixel → meter tersedia.
+    // Kecepatan penelitian = jarak perpindahan kaki / waktu tempuh.
     const isCalibrated = Boolean(calibration && calibration.metersPerPixel > 0);
     const mPerPx = isCalibrated ? calibration!.metersPerPixel : null;
 
@@ -350,6 +355,7 @@ export const speedCalculationEngine = {
         : null;
 
     return {
+      fps: safeFps,
       kickStartFrame: startFrame,
       extensionStartFrame: extensionFrame,
       impactFrame,

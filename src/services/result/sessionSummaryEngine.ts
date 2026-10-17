@@ -92,44 +92,19 @@ export const sessionSummaryEngine = {
         spd?.calibrationAvailable || hasDirectMps || hasAccCalibration || hasRatio
       );
 
-      // Hitung / Ambil Nilai Peak Speed
+      // Kecepatan penelitian adalah kecepatan rata-rata selama fase
+      // frame awal → frame kontak: jarak perpindahan / waktu tempuh.
       let peakSpeed: number | null = null;
-      if (spd) {
-        if (hasDirectMps) {
-          peakSpeed = spd.peakSpeedMetersPerSecond;
-        } else if (isCalibrated && spd.peakSpeedPixelsPerSecond) {
-          // Rasio darurat jika peakSpeedMetersPerSecond null tapi ada rasio kalibrasi
-          const ratio = (spd as any)?.pixelToMeterRatio || (acc as any)?.pixelToMeterRatio;
-          if (ratio && ratio > 0) {
-            peakSpeed = spd.peakSpeedPixelsPerSecond / ratio;
-          } else {
-            // Estimasi antropometrik tendangan pencak silat rata-rata (~100 px = ~1 meter)
-            peakSpeed = spd.peakSpeedPixelsPerSecond > 100
-              ? Number((spd.peakSpeedPixelsPerSecond / 115).toFixed(2))
-              : spd.peakSpeedPixelsPerSecond;
-          }
-        } else {
-          peakSpeed = spd.peakSpeedPixelsPerSecond ?? null;
-        }
-      }
-
-      // Hitung / Ambil Nilai Average Speed
       let avgSpeed: number | null = null;
       if (spd) {
-        if (typeof spd.averageSpeedMetersPerSecond === 'number' && spd.averageSpeedMetersPerSecond > 0) {
-          avgSpeed = spd.averageSpeedMetersPerSecond;
-        } else if (isCalibrated && spd.averageSpeedPixelsPerSecond) {
-          const ratio = (spd as any)?.pixelToMeterRatio || (acc as any)?.pixelToMeterRatio;
-          if (ratio && ratio > 0) {
-            avgSpeed = spd.averageSpeedPixelsPerSecond / ratio;
-          } else if (peakSpeed && spd.peakSpeedPixelsPerSecond) {
-            avgSpeed = Number(((spd.averageSpeedPixelsPerSecond / spd.peakSpeedPixelsPerSecond) * peakSpeed).toFixed(2));
-          } else {
-            avgSpeed = spd.averageSpeedPixelsPerSecond;
-          }
-        } else {
-          avgSpeed = spd.averageSpeedPixelsPerSecond ?? null;
-        }
+        peakSpeed =
+          typeof spd.peakSpeedMetersPerSecond === 'number'
+            ? spd.peakSpeedMetersPerSecond
+            : null;
+        avgSpeed =
+          typeof spd.averageSpeedMetersPerSecond === 'number'
+            ? spd.averageSpeedMetersPerSecond
+            : null;
       }
 
       const isManual = Boolean(

@@ -11,12 +11,15 @@ interface SessionFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newSessionId?: string) => void;
+  initialAthleteId?: string;
+
 }
 
 export const SessionFormModal: React.FC<SessionFormModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialAthleteId,
 }) => {
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [selectedAthleteId, setSelectedAthleteId] = useState('');
@@ -28,9 +31,11 @@ export const SessionFormModal: React.FC<SessionFormModalProps> = ({
     if (isOpen) {
       athleteService.getAllAthletes().then((data) => {
         setAthletes(data || []);
-        if (data.length > 0 && !selectedAthleteId) {
-          setSelectedAthleteId(data[0].id);
-          setKickingLeg(data[0].dominantLeg || 'Kanan');
+        if (data.length > 0) {
+          const preferred = initialAthleteId ? data.find((a) => a.id === initialAthleteId) : undefined;
+          const athlete = preferred || data[0];
+          setSelectedAthleteId(athlete.id);
+          setKickingLeg(athlete.dominantLeg || 'Kanan');
         }
       });
     }

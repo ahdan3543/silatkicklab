@@ -17,7 +17,7 @@ export const AppLayout: React.FC = () => {
         </div>
 
         {/* Padding responsif: di HP p-3 sm:p-4, di desktop p-4 md:p-6 w-full penuh tanpa max-w-7xl */}
-        <main className="flex-1 p-3 sm:p-4 md:p-6 w-full overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 w-full overflow-y-auto">
           <div className="w-full">
             <Outlet />
           </div>

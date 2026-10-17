@@ -4,33 +4,15 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { mockSessions } from '../data/mockData';
 
-// Logo UPI Resmi dari Google Drive dengan Fallback Vektor
-const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-14 h-14' }) => {
-  const [hasError, setHasError] = useState(false);
-
-  if (hasError) {
-    return (
-      <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="50" r="48" fill="#800000" stroke="#F59E0B" strokeWidth="3" />
-        <circle cx="50" cy="50" r="38" fill="#FFFFFF" />
-        <path d="M50 14 L58 32 L78 34 L64 48 L68 68 L50 58 L32 68 L36 48 L22 34 L42 32 Z" fill="#800000" />
-        <circle cx="50" cy="48" r="12" fill="#F59E0B" />
-        <circle cx="50" cy="50" r="9" fill="#800000" />
-        <text x="50" y="86" fontSize="9" fontWeight="900" fill="#FFFFFF" textAnchor="middle" fontFamily="sans-serif">UPI</text>
-      </svg>
-    );
-  }
-
-  return (
-    <img
-      src="https://lh3.googleusercontent.com/d/196_EpzcqTAhpRq7lb-e3dITxelXnpxmR"
-      alt="Logo Universitas Pendidikan Indonesia"
-      onError={() => setHasError(true)}
-      className={`${className} object-contain shrink-0`}
-      loading="eager"
-    />
-  );
-};
+// Logo UPI lokal untuk UI dan laporan PDF
+const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-14 h-14' }) => (
+  <img
+    src="/upi-logo.png"
+    alt="Logo Universitas Pendidikan Indonesia"
+    className={`${className} object-contain shrink-0`}
+    loading="eager"
+  />
+);
 
 export const ReportPage: React.FC = () => {
   const handlePrint = () => {

@@ -384,7 +384,8 @@ export const VideoAnalysisView: React.FC = () => {
       phases.impactFrame,
       phases.recoveryFrame,
       activeCalibration,
-      customPhases ? 'manual-corrected' : 'automatic'
+      customPhases ? 'manual-corrected' : 'automatic',
+      currentPose.fps || activeFps
     );
 
     const fullSpeedResult: SpeedAnalysisResult = {
@@ -593,28 +594,18 @@ export const VideoAnalysisView: React.FC = () => {
     setCurrentTime(t);
   };
 
-  const renderPeakSpeedValue = () => {
+  const renderAverageSpeedValue = () => {
     if (!speedResult) return '-';
-    const msValue = (speedResult as any)?.peakSpeedMetersPerSecond ?? (speedResult as any)?.maxSpeed;
+    const msValue = speedResult.averageSpeedMetersPerSecond;
     if (msValue !== undefined && msValue !== null && !isNaN(Number(msValue)) && Number(msValue) > 0) {
-      return `${Number(msValue).toFixed(1)} m/s`;
+      return `${Number(msValue).toFixed(2)} m/s`;
     }
-    const pxValue = (speedResult as any)?.peakSpeedPixelsPerSecond;
-    if (pxValue !== undefined && pxValue !== null && !isNaN(Number(pxValue))) {
-      return `${Number(pxValue).toFixed(0)} px/s`;
-    }
-    return '-';
+    return 'Kalibrasi diperlukan';
   };
 
   const renderKickDurationValue = () => {
     if (!speedResult) return '-';
-    if (speedResult.recoveryFrame && speedResult.kickStartFrame && speedResult.recoveryFrame > speedResult.kickStartFrame) {
-      return `${((speedResult.recoveryFrame - speedResult.kickStartFrame) / activeFps).toFixed(2)} s`;
-    }
-    if (speedResult.impactFrame && speedResult.kickStartFrame && speedResult.impactFrame > speedResult.kickStartFrame) {
-      return `${((speedResult.impactFrame - speedResult.kickStartFrame) / activeFps).toFixed(2)} s`;
-    }
-    return '-';
+    return `${speedResult.kickDuration.toFixed(3)} s`;
   };
 
   if (loading) {
@@ -1095,9 +1086,9 @@ export const VideoAnalysisView: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className="text-[10px] opacity-80 block truncate">Kecepatan Puncak</span>
+                  <span className="text-[10px] opacity-80 block truncate">Kecepatan Tendangan</span>
                   <span className="text-base sm:text-xl font-black font-mono tracking-tight text-amber-200 block">
-                    {renderPeakSpeedValue()}
+                    {renderAverageSpeedValue()}
                   </span>
                 </div>
 
@@ -1240,7 +1231,7 @@ export const VideoAnalysisView: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs sm:text-sm text-amber-300 flex items-center gap-1.5">
                 <Orbit size={15} className="text-amber-400" />
-                OBSERVASI BIOMEKANIKA LANDSCAPE
+                OBSERVASI BIOMEKANIKA
               </span>
               <span className="hidden sm:inline text-xs text-slate-400 font-mono">
                 [#{attempt.attemptNumber} - {session.sessionCode}]

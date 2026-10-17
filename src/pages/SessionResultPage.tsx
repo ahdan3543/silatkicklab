@@ -152,7 +152,7 @@ const ModernSpeedComparisonChart: React.FC<{
             const peakX = startX + groupWidth / 2 - barWidth - 2;
             const avgX = startX + groupWidth / 2 + 2;
 
-            const peakVal = att.peakSpeed || 0;
+            const peakVal = att.averageSpeed || 0;
             const isExtreme = peakVal > maxVal;
             const pY = getY(peakVal);
             const pHeight = Math.max(3, height - padding.bottom - pY);
@@ -163,7 +163,7 @@ const ModernSpeedComparisonChart: React.FC<{
 
             return (
               <g key={att.attemptId || idx}>
-                {/* Batang Peak Speed (Maroon) */}
+                {/* Batang Kecepatan Tendangan (jarak / waktu) */}
                 <rect
                   x={peakX}
                   y={pY}
@@ -174,7 +174,7 @@ const ModernSpeedComparisonChart: React.FC<{
                   className="transition-all hover:opacity-90"
                 />
 
-                {/* Batang Avg Speed (Gold) */}
+                {/* Batang Kecepatan Tendangan (Gold) */}
                 <rect
                   x={avgX}
                   y={aY}
@@ -185,7 +185,7 @@ const ModernSpeedComparisonChart: React.FC<{
                   className="transition-all hover:opacity-90"
                 />
 
-                {/* Label Angka Peak Speed */}
+                {/* Label Kecepatan Tendangan */}
                 {att.peakSpeed !== null && att.peakSpeed !== undefined && (
                   <text
                     x={peakX + barWidth / 2}
@@ -221,7 +221,7 @@ const ModernSpeedComparisonChart: React.FC<{
       {/* Legend Bawah */}
       <div className="flex items-center justify-center gap-6 text-xs font-medium text-dark-secondary pt-3 border-t border-dark-border/60">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-[#800000] inline-block" /> Kecepatan Puncak (Peak)
+          <span className="w-3 h-3 rounded-sm bg-[#800000] inline-block" /> Kecepatan Tendangan (m/s)
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-[#FACC15] inline-block" /> Kecepatan Rata-Rata
@@ -452,8 +452,7 @@ export const SessionResultPage: React.FC = () => {
           headers={[
             'PERCOBAAN',
             'DURASI',
-            'PEAK SPEED',
-            'AVG SPEED',
+            'KECEPATAN TENDANGAN',
             'DEVIASI TARGET',
             'STATUS',
             'METODE',
@@ -473,11 +472,8 @@ export const SessionResultPage: React.FC = () => {
                 <td className="px-4 py-3 font-mono text-dark">
                   {att.kickDuration ? `${att.kickDuration.toFixed(2)} s` : '-'}
                 </td>
-                <td className="px-4 py-3 font-mono font-bold text-[#800000]">
-                  {att.peakSpeed !== null ? `${att.peakSpeed.toFixed(2)} ${att.speedUnit}` : '-'}
-                </td>
                 <td className="px-4 py-3 font-mono text-dark">
-                  {att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${att.speedUnit}` : '-'}
+                  {att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${att.speedUnit}` : 'Kalibrasi diperlukan'}
                 </td>
                 <td className="px-4 py-3 font-mono text-dark">
                   {att.distanceToTargetCm !== null ? `${att.distanceToTargetCm.toFixed(1)} cm` : '-'}
