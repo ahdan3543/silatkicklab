@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -212,6 +213,32 @@ export const VideoAnalysisView: React.FC = () => {
     }
   };
 
+  // Pastikan mode observasi benar-benar mengambil seluruh viewport.
+  // Body dikunci agar halaman di belakang tidak ikut scroll/menyisakan offset.
+  useEffect(() => {
+    if (!isExpandedView) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousBackground = document.documentElement.style.background;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.background = '#000';
+
+    const handleFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      if (!active) setIsExpandedView(false);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange' as any, handleFullscreenChange);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.documentElement.style.background = previousBackground;
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange' as any, handleFullscreenChange);
+    };
+  }, [isExpandedView]);
+
   // 3. Masuk dan Keluar Fullscreen + Lock Landscape di Smartphone
   const handleOpenFullscreenLandscape = async () => {
     setIsExpandedView(true);
@@ -255,10 +282,12 @@ export const VideoAnalysisView: React.FC = () => {
   };
 
   // 4. Zoom & Pan Logic
+  // 3D Lab memakai zoom kamera nyata: 50% berarti kamera menjauh dan area studio yang terlihat lebih luas.
+  // Video biasa tetap dibatasi minimum 100% agar tidak pernah 'zoom out'.
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.3, 4));
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const next = Math.max(prev - 0.3, 1);
+      const next = Math.max(prev - 0.3, viewMode === '3d' ? 0.5 : 1);
       if (next === 1) setPanOffset({ x: 0, y: 0 });
       return next;
     });
@@ -275,7 +304,7 @@ export const VideoAnalysisView: React.FC = () => {
       setZoomLevel((prev) => Math.min(prev + 0.15, 4));
     } else {
       setZoomLevel((prev) => {
-        const next = Math.max(prev - 0.15, 1);
+        const next = Math.max(prev - 0.15, viewMode === '3d' ? 0.5 : 1);
         if (next === 1) setPanOffset({ x: 0, y: 0 });
         return next;
       });
@@ -284,13 +313,13 @@ export const VideoAnalysisView: React.FC = () => {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (interactionMode === '3d-orbit') return;
-    if (zoomLevel <= 1) return;
+    if (zoomLevel <= (viewMode === '3d' ? 0.5 : 1)) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || zoomLevel <= 1 || interactionMode === '3d-orbit') return;
+    if (!isDragging || zoomLevel <= 1 || interactionMode === '3d-orbit' || viewMode === '3d') return;
     setPanOffset({
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y,
@@ -306,7 +335,7 @@ export const VideoAnalysisView: React.FC = () => {
         e.touches[0].clientY - e.touches[1].clientY
       );
       touchDistanceRef.current = dist;
-    } else if (e.touches.length === 1 && interactionMode === 'pan-zoom' && zoomLevel > 1) {
+    } else if (e.touches.length === 1 && interactionMode === 'pan-zoom' && zoomLevel > 1 && viewMode !== '3d') {
       setIsDragging(true);
       setDragStart({
         x: e.touches[0].clientX - panOffset.x,
@@ -322,9 +351,9 @@ export const VideoAnalysisView: React.FC = () => {
         e.touches[0].clientY - e.touches[1].clientY
       );
       const factor = dist / touchDistanceRef.current;
-      setZoomLevel((prev) => Math.min(Math.max(prev * factor, 1), 4));
+      setZoomLevel((prev) => Math.min(Math.max(prev * factor, viewMode === '3d' ? 0.5 : 1), 4));
       touchDistanceRef.current = dist;
-    } else if (e.touches.length === 1 && isDragging && interactionMode === 'pan-zoom' && zoomLevel > 1) {
+    } else if (e.touches.length === 1 && isDragging && interactionMode === 'pan-zoom' && zoomLevel > 1 && viewMode !== '3d') {
       setPanOffset({
         x: e.touches[0].clientX - dragStart.x,
         y: e.touches[0].clientY - dragStart.y,
@@ -632,7 +661,7 @@ export const VideoAnalysisView: React.FC = () => {
 
   // Sub-komponen Player & Kontrol
   const renderVideoPlayerBlock = (isFullScreenMode: boolean = false) => (
-    <div className={`space-y-2 select-none w-full ${isFullScreenMode ? 'h-full flex flex-col justify-between' : ''}`}>
+    <div className={`select-none w-full ${isFullScreenMode ? 'h-full min-h-0 flex flex-col' : 'space-y-2'}`}>
       <div
         ref={viewportRef}
         onWheel={handleWheel}
@@ -643,13 +672,15 @@ export const VideoAnalysisView: React.FC = () => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className={`relative overflow-hidden bg-black flex items-center justify-center ${
-          isFullScreenMode ? 'flex-1 w-full h-full rounded-none' : 'aspect-video rounded-xl shadow-inner'
+          isFullScreenMode ? 'min-h-0 flex-1 w-full h-full rounded-none' : 'aspect-video rounded-xl shadow-inner'
         } ${interactionMode === 'pan-zoom' && zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
       >
         {videoUrl ? (
           <div
             style={{
-              transform: `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)`,
+              transform: viewMode === '3d'
+                ? `rotateY(${modelRotationY}deg)`
+                : `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)`,
               transformOrigin: 'center center',
               transition: isDragging ? 'none' : 'transform 0.1s ease-out',
             }}
@@ -705,6 +736,8 @@ export const VideoAnalysisView: React.FC = () => {
                   currentFramePose={currentFramePose}
                   videoWidth={isFullScreenMode ? window.innerWidth : videoDims.width}
                   videoHeight={isFullScreenMode ? window.innerHeight : videoDims.height}
+                  zoomLevel={zoomLevel}
+                  onZoomChange={setZoomLevel}
                   isImpactFrame={isAtImpactFrame}
                   kickingLeg={session.kickingLeg}
                   showMannequin={true}
@@ -1225,8 +1258,11 @@ export const VideoAnalysisView: React.FC = () => {
       </div>
 
       {/* MODAL FULLSCREEN LANDSCAPE OTOMATIS */}
-      {isExpandedView && (
-        <div className="fixed inset-0 z-[9999] bg-black flex flex-col justify-between w-screen h-screen overflow-hidden animate-fadeIn">
+      {isExpandedView && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed left-0 top-0 z-[99999] m-0 flex flex-col overflow-hidden bg-black p-0 animate-fadeIn"
+          style={{ width: '100vw', height: '100dvh', minHeight: '100dvh', inset: 0 }}
+        >
           <div className="flex items-center justify-between text-white py-2 px-3 sm:px-6 bg-black/90 border-b border-white/10 shrink-0 z-50">
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs sm:text-sm text-amber-300 flex items-center gap-1.5">
@@ -1253,10 +1289,11 @@ export const VideoAnalysisView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center bg-black">
+          <div className="min-h-0 flex-1 w-full relative overflow-hidden flex items-stretch justify-center bg-black p-0 m-0">
             {renderVideoPlayerBlock(true)}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modals */}

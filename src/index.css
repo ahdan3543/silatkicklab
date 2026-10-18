@@ -1011,3 +1011,26 @@
 
   .report-list-card .report-mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
 }
+
+/* Biomechanics observation fullscreen: always occupy the complete viewport. */
+html:fullscreen,
+html:-webkit-full-screen,
+body:fullscreen,
+body:-webkit-full-screen {
+  width:100vw !important;
+  height:100vh !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  background:#000 !important;
+}
+
+/* Mobile browsers expose dynamic viewport height; avoid the small top/bottom gap. */
+@supports (height: 100dvh) {
+  html:fullscreen,
+  html:-webkit-full-screen,
+  body:fullscreen,
+  body:-webkit-full-screen {
+    height:100dvh !important;
+  }
+}

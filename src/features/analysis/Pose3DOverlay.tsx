@@ -13,6 +13,9 @@ interface Pose3DOverlayProps {
   showMannequin: boolean;
   target?: TargetDefinition | null;
   onToggleMannequin?: (val: boolean) => void;
+  /** Zoom 3D dikontrol dari player utama agar indikator zoom selalu sinkron. 1 = 100%, 0.5 = 50%. */
+  zoomLevel?: number;
+  onZoomChange?: (zoom: number) => void;
 }
 
 export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
@@ -23,6 +26,8 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
   kickingLeg = 'Kanan',
   showMannequin,
   target,
+  zoomLevel = 1,
+  onZoomChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,7 +43,7 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
   // State Kontrol Interaksi 3D
   const [rotationY, setRotationY] = useState<number>(0);
   const [rotationX, setRotationX] = useState<number>(0);
-  const [cameraZ, setCameraZ] = useState<number>(2.4);
+  const cameraZ = 2.4 / Math.max(0.5, zoomLevel);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const lastPointerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -160,6 +165,239 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
     return group;
   }, [createFrontPadTexture]);
 
+
+  // Ruangan studio biomekanika: dibuat seperti studio motion-capture modern,
+  // bukan sekadar box hitam. Bagian depan tetap terbuka agar pose dan target jelas.
+  const buildStudioRoom = useCallback((): THREE.Group => {
+    const room = new THREE.Group();
+
+    // Studio biomekanika: gelap-premium seperti ruang motion lab, tetapi subjek
+    // tetap terang dan mudah dibaca dari seluruh sudut 360°.
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x1b2028,
+      roughness: 0.28,
+      metalness: 0.22,
+    });
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x252b34,
+      roughness: 0.72,
+      metalness: 0.04,
+      side: THREE.DoubleSide,
+    });
+    const panelMat = new THREE.MeshStandardMaterial({
+      color: 0x303741,
+      roughness: 0.62,
+      metalness: 0.08,
+    });
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: 0x66707d,
+      roughness: 0.42,
+      metalness: 0.2,
+    });
+    const redMat = new THREE.MeshStandardMaterial({
+      color: 0xc81018,
+      emissive: 0x52080b,
+      emissiveIntensity: 0.22,
+      roughness: 0.38,
+    });
+    const lightMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffffff,
+      emissiveIntensity: 3.0,
+      roughness: 0.18,
+    });
+
+    // Lantai hitam/charcoal glossy agar terlihat seperti studio profesional.
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.12, 7.2), floorMat);
+    floor.position.set(0, -1.06, -0.15);
+    floor.receiveShadow = true;
+    room.add(floor);
+
+    // Garis arena merah tetap menjadi acuan biomekanika.
+    const floorBorder = new THREE.Mesh(new THREE.BoxGeometry(8.45, 0.018, 0.055), trimMat);
+    floorBorder.position.set(0, -0.995, -3.05);
+    room.add(floorBorder);
+    const floorLine = new THREE.Mesh(new THREE.BoxGeometry(6.9, 0.018, 0.045), redMat);
+    floorLine.position.set(0, -0.988, -1.55);
+    room.add(floorLine);
+    const centerLine = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.02, 5.2), redMat);
+    centerLine.position.set(0, -0.987, -0.2);
+    room.add(centerLine);
+
+    // Empat sisi ruangan benar-benar memiliki dinding sehingga saat orbit ke belakang
+    // tidak pernah muncul background hitam kosong.
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(9.2, 5.35, 0.16), wallMat);
+    backWall.position.set(0, 1.55, -3.48);
+    backWall.receiveShadow = true;
+    room.add(backWall);
+
+    const frontWall = new THREE.Mesh(new THREE.BoxGeometry(9.2, 5.35, 0.16), wallMat);
+    frontWall.position.set(0, 1.55, 3.42);
+    frontWall.receiveShadow = true;
+    room.add(frontWall);
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 5.35, 7.0), wallMat);
+    leftWall.position.set(-4.55, 1.55, -0.05);
+    leftWall.receiveShadow = true;
+    room.add(leftWall);
+
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 5.35, 7.0), wallMat);
+    rightWall.position.set(4.55, 1.55, -0.05);
+    rightWall.receiveShadow = true;
+    room.add(rightWall);
+
+    // Panel vertikal untuk memberi kedalaman seperti studio nyata.
+    const addBackPanels = (z: number, facing: number) => {
+      [-3.55, -2.15, -0.75, 0.65, 2.05, 3.45].forEach((x) => {
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(1.22, 3.75, 0.075), panelMat);
+        panel.position.set(x, 1.43, z);
+        panel.receiveShadow = true;
+        room.add(panel);
+
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(0.025, 3.78, 0.035), trimMat);
+        seam.position.set(x + 0.62, 1.43, z + facing * 0.055);
+        room.add(seam);
+      });
+    };
+    addBackPanels(-3.36, 1);
+    addBackPanels(3.30, -1);
+
+    // Panel aksen merah di kiri/kanan seperti dinding branding pada referensi.
+    const addSideAccent = (x: number, facing: number) => {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(0.035, 3.25, 3.65), redMat);
+      panel.position.set(x + facing * 0.035, 1.42, -0.95);
+      room.add(panel);
+
+      const inner = new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.65, 2.75), wallMat);
+      inner.position.set(x + facing * 0.06, 1.42, -0.95);
+      room.add(inner);
+    };
+    addSideAccent(-4.44, 1);
+    addSideAccent(4.44, -1);
+
+    // Branding SILAT MOTION pada dinding samping.
+    const makeSideBrand = () => {
+      const cv = document.createElement('canvas');
+      cv.width = 1000;
+      cv.height = 560;
+      const ctx = cv.getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = '#b90d14';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 74px Arial, sans-serif';
+      ctx.fillText('SILAT MOTION', 72, 205);
+      ctx.font = '400 36px Arial, sans-serif';
+      ctx.fillText('ANALISIS TENDANGAN', 72, 270);
+      ctx.fillText('PENCAK SILAT', 72, 320);
+      ctx.globalAlpha = 0.18;
+      ctx.font = '900 210px Arial, sans-serif';
+      ctx.fillText('S', 735, 430);
+      ctx.globalAlpha = 1;
+      return new THREE.CanvasTexture(cv);
+    };
+    const sideBrandTexture = makeSideBrand();
+    if (sideBrandTexture) {
+      sideBrandTexture.colorSpace = THREE.SRGBColorSpace;
+      const sideBrandMat = new THREE.MeshBasicMaterial({ map: sideBrandTexture, side: THREE.DoubleSide });
+      const sideBrandLeft = new THREE.Mesh(new THREE.PlaneGeometry(2.25, 1.26), sideBrandMat);
+      sideBrandLeft.position.set(-4.46, 1.55, -0.95);
+      sideBrandLeft.rotation.y = Math.PI / 2;
+      room.add(sideBrandLeft);
+
+      const sideBrandRight = new THREE.Mesh(new THREE.PlaneGeometry(2.25, 1.26), sideBrandMat.clone());
+      sideBrandRight.position.set(4.46, 1.55, -0.95);
+      sideBrandRight.rotation.y = -Math.PI / 2;
+      room.add(sideBrandRight);
+    }
+
+    // Panel identitas UPI. Logo dan teks dibuat pada canvas agar tajam dan konsisten.
+    const makeLogoCanvas = (logoSrc: string) => {
+      const cv = document.createElement('canvas');
+      cv.width = 1600;
+      cv.height = 620;
+      const ctx = cv.getContext('2d');
+      if (!ctx) return null;
+
+      ctx.fillStyle = '#222831';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#c81018';
+      ctx.fillRect(0, 0, cv.width, 18);
+      ctx.fillRect(0, cv.height - 18, cv.width, 18);
+
+      const texture = new THREE.CanvasTexture(cv);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 95, 135, 350, 350);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 82px Arial, sans-serif';
+        ctx.fillText('UNIVERSITAS', 535, 245);
+        ctx.fillText('PENDIDIKAN', 535, 345);
+        ctx.fillText('INDONESIA', 535, 445);
+        ctx.fillStyle = '#e3e7ec';
+        ctx.fillRect(535, 475, 700, 7);
+        texture.needsUpdate = true;
+      };
+      img.src = logoSrc;
+      return texture;
+    };
+
+    const logoTexture = makeLogoCanvas('/upi-logo.png');
+    if (logoTexture) {
+      const logoMat = new THREE.MeshBasicMaterial({ map: logoTexture, side: THREE.DoubleSide });
+
+      const backLogo = new THREE.Mesh(new THREE.PlaneGeometry(3.25, 1.26), logoMat);
+      backLogo.position.set(0, 1.68, -3.27);
+      room.add(backLogo);
+
+      // Logo sisi depan juga dibuat terang supaya orbit 180° tetap informatif.
+      const frontLogo = new THREE.Mesh(new THREE.PlaneGeometry(3.25, 1.26), logoMat.clone());
+      frontLogo.position.set(0, 1.68, 3.08);
+      frontLogo.rotation.y = Math.PI;
+      room.add(frontLogo);
+    }
+
+    // Plafon gelap dengan softbox putih; cahaya membuat mannequin putih tetap terbaca.
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.10, 7.0), wallMat);
+    ceiling.position.set(0, 4.15, -0.15);
+    room.add(ceiling);
+
+    [-3.1, 0, 3.1].forEach((x) => {
+      const softbox = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.06, 1.05), lightMat);
+      softbox.position.set(x, 4.04, -0.25);
+      room.add(softbox);
+      const area = new THREE.RectAreaLight(0xffffff, 7.0, 1.65, 1.05);
+      area.position.set(x, 3.85, -0.25);
+      area.rotation.x = 0;
+      room.add(area);
+    });
+
+    // Key/fill/rim lights dari seluruh arah. Ini penting agar atlet tidak tenggelam
+    // ketika pengguna memutar studio ke belakang.
+    const addAreaLight = (x: number, y: number, z: number, intensity: number, rotY: number) => {
+      const area = new THREE.RectAreaLight(0xffffff, intensity, 4.5, 3.0);
+      area.position.set(x, y, z);
+      area.rotation.y = rotY;
+      room.add(area);
+    };
+    addAreaLight(0, 2.4, 2.8, 6.5, Math.PI);
+    addAreaLight(0, 2.4, -2.8, 6.5, 0);
+    addAreaLight(-3.8, 2.0, 0, 4.0, Math.PI / 2);
+    addAreaLight(3.8, 2.0, 0, 4.0, -Math.PI / 2);
+
+    // Lampu merah tipis sebagai aksen studio, bukan sebagai sumber utama pencahayaan.
+    [-3.95, 3.95].forEach((x) => {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.045, 3.0, 0.045), redMat);
+      strip.position.set(x, 1.5, -3.22);
+      room.add(strip);
+    });
+
+    return room;
+  }, []);
+
   // Inisialisasi Engine Three.js
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -169,16 +407,20 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
 
     const scene = new THREE.Scene();
     // Latar Belakang Hitam Pekat Ruang Lab Biomekanika
-    scene.background = new THREE.Color(0x020617);
+    scene.background = new THREE.Color(0xe5e7eb);
     sceneRef.current = scene;
 
     const worldGroup = new THREE.Group();
     scene.add(worldGroup);
     worldGroupRef.current = worldGroup;
 
-    // Grid Lantai Studio Biomekanika
-    const gridFloor = new THREE.GridHelper(6, 20, 0x334155, 0x1e293b);
-    gridFloor.position.y = -1.0;
+    // Studio biomekanika yang lebih terasa seperti ruangan nyata.
+    const studioRoom = buildStudioRoom();
+    worldGroup.add(studioRoom);
+
+    // Grid lantai tetap dipertahankan sebagai acuan pengukuran.
+    const gridFloor = new THREE.GridHelper(7.8, 26, 0x475569, 0x243244);
+    gridFloor.position.set(0, -0.99, -0.15);
     worldGroup.add(gridFloor);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.3, 50);
@@ -194,20 +436,25 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     rendererRef.current = renderer;
 
     // Pencahayaan
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 1.4);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 2.5);
     hemiLight.position.set(0, 5, 0);
     scene.add(hemiLight);
 
-    const dirLightFront = new THREE.DirectionalLight(0xffffff, 1.4);
-    dirLightFront.position.set(2, 4, 5);
+    const dirLightFront = new THREE.DirectionalLight(0xffffff, 3.2);
+    dirLightFront.position.set(2, 5, 5);
+    dirLightFront.castShadow = true;
+    dirLightFront.shadow.mapSize.set(1024, 1024);
     scene.add(dirLightFront);
 
-    const dirLightBack = new THREE.DirectionalLight(0x800000, 0.8);
-    dirLightBack.position.set(-3, -2, -3);
+    const dirLightBack = new THREE.DirectionalLight(0xffd5d5, 2.0);
+    dirLightBack.position.set(-3, 3, -4);
     scene.add(dirLightBack);
 
     // Mannequin
@@ -246,7 +493,7 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
       mannequin.dispose();
       renderer.dispose();
     };
-  }, [buildTargetPad, cameraZ, videoHeight, videoWidth]);
+  }, [buildTargetPad, buildStudioRoom, videoHeight, videoWidth]);
 
   // Update Posisi & Visibilitas Pecing Box 3D
   useEffect(() => {
@@ -310,7 +557,7 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
   const handleResetView = () => {
     setRotationY(0);
     setRotationX(0);
-    setCameraZ(2.4);
+    onZoomChange?.(1);
   };
 
   // Jangan render canvas ke DOM jika sedang di mode video
@@ -362,16 +609,16 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
         <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
         <button
           type="button"
-          onClick={() => setCameraZ((prev) => Math.max(1.4, prev - 0.25))}
-          title="Perbesar"
+          onClick={() => onZoomChange?.(Math.min(4, zoomLevel + 0.25))}
+          title="Zoom In"
           className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
         >
           <ZoomIn size={13} />
         </button>
         <button
           type="button"
-          onClick={() => setCameraZ((prev) => Math.min(4.0, prev + 0.25))}
-          title="Perkecil"
+          onClick={() => onZoomChange?.(Math.max(0.5, zoomLevel - 0.25))}
+          title="Zoom Out"
           className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
         >
           <ZoomOut size={13} />
