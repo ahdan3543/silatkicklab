@@ -56,6 +56,10 @@ export interface SpeedAnalysisResult {
   // Physical Metrics (dihitung setelah kalibrasi pixel → meter)
   footDisplacementMeters: number | null;
   peakSpeedMetersPerSecond: number | null;
+  /** Frame where the maximum smoothed speed was recorded. */
+  peakSpeedFrame: number | null;
+  /** Timestamp (seconds) of the maximum smoothed speed. */
+  peakSpeedTimestamp: number | null;
   averageSpeedMetersPerSecond: number | null;
 
   detectionMethod: 'automatic' | 'manual-corrected';
