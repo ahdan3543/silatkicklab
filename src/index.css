@@ -122,6 +122,35 @@
   .quick-card b { @apply block text-[13px] font-extrabold text-slate-800; }
   .quick-card small { @apply block mt-1.5 text-[10px] leading-relaxed text-slate-400; }
   .athlete-row { @apply rounded-2xl border border-slate-100 p-4 flex items-center justify-between gap-4 hover:border-red-100 hover:shadow-[0_6px_18px_rgba(15,23,42,.04)] transition-all; min-height:94px; }
+  .system-explainer {
+    background: linear-gradient(135deg,#ffffff 0%,#fffdfd 55%,#fff6f7 100%);
+    border-color: rgba(164,0,0,.10);
+    box-shadow: 0 12px 30px rgba(15,23,42,.045);
+  }
+  .system-head { @apply flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6; }
+  .system-head h2 { @apply text-[26px] sm:text-[31px] tracking-[-.035em]; }
+  .system-head p { @apply mt-2 max-w-[900px] text-[13px] sm:text-[14px] leading-relaxed text-slate-500; }
+  .system-flow-badge { @apply inline-flex items-center gap-3 self-start lg:self-auto rounded-2xl border border-red-100 bg-white px-5 py-3.5 text-[10px] font-black tracking-[.12em] text-[#a40000] shadow-sm; } 
+  .system-flow-badge svg { @apply text-slate-300; }
+  .system-steps { @apply grid grid-cols-1 md:grid-cols-2 gap-5; }
+  .system-step { @apply relative min-h-[225px] rounded-[22px] border bg-white p-7 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(164,0,0,.10)]; border-color:rgba(148,163,184,.16); }
+  .system-step:nth-child(5) { @apply md:col-span-2; }
+  .system-step-icon { @apply flex h-14 w-14 items-center justify-center rounded-2xl border shadow-sm; }
+  .system-step-number { @apply rounded-full bg-slate-50 px-3 py-1.5 text-[10px] font-black tracking-[.16em] text-slate-300; }
+  .system-step-title { @apply block text-[18px] font-extrabold tracking-tight text-slate-900; }
+  .system-step-desc { @apply mt-3 max-w-[620px] text-[13px] leading-[1.7] text-slate-500; }
+  .system-step-tag { @apply absolute bottom-7 left-7 inline-flex rounded-full border border-slate-100 bg-slate-50 px-3 py-2 text-[9px] font-black tracking-[.08em] text-slate-500; }
+  .system-results { @apply grid grid-cols-1 lg:grid-cols-3 gap-5; }
+  .system-result-card { @apply flex items-start gap-4 rounded-[20px] border border-slate-100 bg-white p-5 shadow-sm; min-height:150px; }
+  .system-result-icon { @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-[#a40000]; }
+  .system-result-card b { @apply block text-[14px] font-extrabold text-slate-800; }
+  .system-result-card strong { @apply mt-2 block rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] font-black text-[#a40000]; }
+  .system-result-card small { @apply mt-2 block text-[11px] leading-relaxed text-slate-400; }
+  .system-output { @apply flex items-start gap-4 rounded-[20px] border border-red-100 bg-gradient-to-r from-red-50 via-rose-50/50 to-white p-5; }
+  .system-output-mark { @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#a40000] shadow-sm; }
+  .system-output b { @apply text-[15px] font-extrabold text-slate-900; }
+  .system-output span { @apply rounded-full bg-white px-3 py-1.5 text-[9px] font-black text-[#a40000] border border-red-100; }
+  .system-output p { @apply mt-1.5 text-[12px] sm:text-[13px] leading-relaxed text-slate-500; }
   .promo-card { @apply relative overflow-hidden rounded-2xl min-h-[270px] p-6 bg-gradient-to-br from-red-50 to-rose-100 border border-red-100; }
   .promo-card img { position:absolute; right:-80px; bottom:-10px; width:260px; opacity:.25; mix-blend-mode:multiply; }
 }
@@ -132,13 +161,108 @@
 ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
 
 @media (max-width:767px) {
-  body { background:#f7f7f8; }
-  .mobile-safe-bottom { padding-bottom:5.5rem; }
-  .page-hero { min-height:290px; background-size:auto 100%, auto 100%, auto; }
-  .page-hero::after { background:linear-gradient(90deg,rgba(255,255,255,.55),rgba(255,255,255,.10) 65%,rgba(255,255,255,0)); }
-  .dashboard-hero { min-height:290px; }
-  .dashboard-hero .hero-image { opacity:.38; right:-30%; background-size:auto 78%; background-position:right bottom; }
+  body { background:#f7f7f8; overflow-x:hidden; }
+  .mobile-safe-bottom { padding-bottom:5.75rem; }
+
+  /* Mobile shell: enough breathing room without wasting the small viewport. */
+  main { padding: .75rem !important; }
+  .page-hero, .dashboard-hero { min-height:230px; border-radius:20px; }
+  .page-hero { background-size:auto 100%, auto 100%, auto; }
+  .page-hero::after { background:linear-gradient(90deg,rgba(255,255,255,.72) 0%,rgba(255,255,255,.38) 58%,rgba(255,255,255,.08) 100%); }
+  .page-hero-content { padding:1.35rem 1.25rem 1.5rem; max-width:100%; }
+  .page-hero h1, .dashboard-hero h1 { font-size:2rem !important; line-height:1.02 !important; letter-spacing:-.045em !important; }
+  .page-hero p, .dashboard-hero p { font-size:.8rem !important; line-height:1.55 !important; max-width:78% !important; }
+  .page-hero .mt-5, .dashboard-hero .mt-5 { margin-top:.9rem !important; }
+  .page-hero button, .dashboard-hero button { min-height:42px; padding:.65rem 1rem !important; }
+  .dashboard-hero .hero-image { opacity:.28; right:-38%; background-size:auto 72%; background-position:right bottom; }
   .silat-hero::after { width:78%; right:-18%; bottom:-55%; opacity:.075; }
+
+  /* Shared cards */
+  .dashboard-section, .analysis-surface, .system-explainer { border-radius:18px; padding:1rem !important; }
+  .dashboard-section h2 { font-size:1.05rem; }
+  .dashboard-section > div > div > p { font-size:.68rem; }
+  .dashboard-stat { min-height:92px; padding:.8rem !important; gap:.65rem; border-radius:16px; }
+  .dashboard-stat .stat-icon { width:42px; height:42px; border-radius:14px; }
+  .dashboard-stat .stat-icon svg { width:20px; height:20px; }
+  .dashboard-stat p { font-size:9px; }
+  .dashboard-stat strong { font-size:22px; }
+  .dashboard-stat small { font-size:8px; line-height:1.25; }
+  .quick-card { min-height:96px; padding:.8rem; gap:.65rem; border-radius:16px; }
+  .quick-icon { width:40px; height:40px; border-radius:13px; }
+  .quick-icon svg { width:19px; height:19px; }
+  .quick-card b { font-size:11px; }
+  .quick-card small { font-size:8px; line-height:1.35; }
+  .athlete-row { min-height:76px; padding:.8rem; border-radius:15px; }
+
+  /* System explainer becomes a real mobile reading flow. */
+  .system-head { gap:.8rem; margin-bottom:1rem !important; }
+  .system-head h2 { font-size:1.35rem !important; line-height:1.12; }
+  .system-head p { font-size:.72rem !important; line-height:1.5; margin-top:.35rem; }
+  .system-flow-badge { width:100%; justify-content:center; padding:.65rem .75rem; font-size:8px; border-radius:13px; }
+  .system-steps { grid-template-columns:1fr; gap:.75rem; }
+  .system-step, .system-step:nth-child(5) { grid-column:auto; min-height:0; padding:1rem; border-radius:16px; }
+  .system-step-icon { width:44px; height:44px; border-radius:13px; }
+  .system-step-icon svg { width:20px; height:20px; }
+  .system-step-number { font-size:8px; padding:.35rem .55rem; }
+  .system-step-title { font-size:13px; }
+  .system-step-desc { margin-top:.45rem; font-size:10px; line-height:1.55; max-width:none; padding-right:0; }
+  .system-step-tag { position:static; margin-top:.7rem; font-size:7px; padding:.35rem .55rem; }
+  .system-results { grid-template-columns:1fr; gap:.7rem; margin-top:.75rem !important; }
+  .system-result-card { min-height:0; padding:.85rem; border-radius:15px; gap:.7rem; }
+  .system-result-icon { width:36px; height:36px; border-radius:11px; }
+  .system-result-card b { font-size:11px; }
+  .system-result-card strong { font-size:9px; padding:.45rem .6rem; margin-top:.4rem; }
+  .system-result-card small { font-size:9px; line-height:1.45; margin-top:.45rem; }
+  .system-output { padding:.85rem; border-radius:15px; margin-top:.75rem !important; gap:.7rem; }
+  .system-output-mark { width:38px; height:38px; border-radius:12px; }
+  .system-output b { font-size:12px; }
+  .system-output span { font-size:7px; padding:.35rem .5rem; }
+  .system-output p { font-size:9px; line-height:1.45; }
+
+  /* Analysis/session cards */
+  .analysis-session-card { padding:.85rem !important; border-radius:16px; }
+  .analysis-session-card .analysis-avatar { width:38px; height:38px; border-radius:12px; }
+  .analysis-session-card .analysis-delete { width:38px; height:38px; }
+  .analysis-session-card .text-right { min-width:42px; }
+  .analysis-session-card p { overflow-wrap:anywhere; }
+  .analysis-session-card .flex-wrap { row-gap:.45rem; }
+
+  /* Toolbars stack instead of squeezing controls into one row. */
+  .mobile-stack { flex-direction:column !important; align-items:stretch !important; }
+  .mobile-stack > * { width:100% !important; }
+
+  /* Report/Result cards and data blocks. */
+  .report-toolbar, .result-toolbar { flex-wrap:wrap; }
+  .report-toolbar > *, .result-toolbar > * { min-width:0; }
+  .report-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .report-metric-grid > * { min-width:0; }
+  .report-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+  /* Official A4 report remains readable on a phone and can still be printed at A4. */
+  .official-report { padding:.9rem !important; border-radius:16px !important; }
+  .official-report .report-grid-2 { grid-template-columns:1fr !important; }
+  .official-report .report-grid-4 { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .official-report .report-two-col { grid-template-columns:1fr !important; }
+  .official-report table { font-size:9px; }
+  .official-report th, .official-report td { padding:.4rem .45rem !important; }
+  .official-report h1 { font-size:1.15rem !important; }
+
+  /* Modals: use almost the full phone width and leave room above the bottom nav. */
+  [role="dialog"] { max-height:calc(100dvh - 1.5rem); }
+
+  /* Inputs and selects should be thumb-friendly. */
+  input, select, textarea { min-height:42px; }
+}
+
+@media (max-width:380px) {
+  .page-hero, .dashboard-hero { min-height:215px; }
+  .page-hero-content { padding:1.1rem 1rem 1.25rem; }
+  .page-hero h1, .dashboard-hero h1 { font-size:1.8rem !important; }
+  .page-hero p, .dashboard-hero p { max-width:82% !important; font-size:.74rem !important; }
+  .dashboard-stat { padding:.7rem !important; }
+  .dashboard-stat .stat-icon { width:38px; height:38px; }
+  .dashboard-stat strong { font-size:20px; }
+  .quick-card { min-height:88px; }
 }
 
 @media print {
@@ -147,4 +271,40 @@
   @page { size:A4 portrait; margin:8mm 10mm; }
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   .page-break-inside-avoid { break-inside:avoid; page-break-inside:avoid; }
+}
+
+/* Analysis page: keep the same visual language as Beranda and Data Atlet. */
+.analysis-session-card { overflow:hidden; }
+.analysis-avatar { @apply w-10 h-10 rounded-xl bg-red-50 text-[#a40000] flex items-center justify-center font-extrabold text-[10px] shrink-0; }
+.analysis-delete { @apply w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-400 flex items-center justify-center hover:border-red-200 hover:text-[#a40000] transition; }
+
+@media (max-width: 639px) {
+  .analysis-session-card .analysis-avatar { width:2.5rem; height:2.5rem; }
+  .analysis-session-card .analysis-delete { width:2.5rem; height:2.5rem; }
+}
+
+@media (max-width:767px) {
+  .session-detail-toolbar { flex-direction:column !important; align-items:stretch !important; }
+  .session-detail-toolbar > div:last-child { width:100%; display:grid; grid-template-columns:1fr 1fr; }
+  .session-detail-toolbar > div:last-child button { width:100%; justify-content:center; }
+  .session-info-grid { grid-template-columns:1fr !important; }
+  .attempt-card { border-radius:16px !important; padding:.75rem !important; }
+  .result-chart-card { padding:.85rem !important; }
+  .result-chart-card h3 { font-size:12px !important; }
+  .result-chart-card p { font-size:9px !important; }
+  .result-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .result-kpi-grid > * { min-width:0; }
+  .result-action-row { flex-direction:column !important; align-items:stretch !important; }
+  .result-action-row > * { width:100% !important; justify-content:center; }
+  .report-list-card { padding:.85rem !important; border-radius:16px !important; }
+  .report-list-card .report-mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}
+
+@media (max-width:767px) {
+  .report-actionbar { flex-direction:column !important; align-items:stretch !important; padding:.65rem !important; }
+  .report-actionbar > div, .report-actionbar > button { width:100%; }
+  .report-actionbar > div { display:grid; grid-template-columns:1fr 1fr; }
+  .report-actionbar button { min-height:40px; }
+  .official-report { overflow:hidden; }
+  .official-report .overflow-x-auto { overflow-x:auto; max-width:100%; }
 }

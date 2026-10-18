@@ -406,7 +406,7 @@ export const SessionDetailPage: React.FC = () => {
   return (
     <div className="w-full space-y-4 pb-16">
       {/* 1. HEADER BAR (FULL WIDTH) */}
-      <div className="w-full flex items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-dark-border shadow-xs">
+      <div className="session-detail-toolbar w-full flex items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-dark-border shadow-xs">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/analisis')}
@@ -454,7 +454,7 @@ export const SessionDetailPage: React.FC = () => {
       </div>
 
       {/* 2. STATS & INFO TERPADU (FULL WIDTH) */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="session-info-grid w-full grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-950 text-white border-slate-800 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300">
@@ -531,7 +531,7 @@ export const SessionDetailPage: React.FC = () => {
             const hasVideo = checkHasValidVideo(att);
 
             return (
-              <div key={att.id} className="flex flex-col space-y-2 bg-white p-2.5 rounded-xl border border-dark-border/80 shadow-xs">
+              <div key={att.id} className="attempt-card flex flex-col space-y-2 bg-white p-2.5 rounded-xl border border-dark-border/80 shadow-xs">
                 <VideoCard
                   attempt={att}
                   onUploadSuccess={handleUploadSuccess}

@@ -57,8 +57,8 @@ export const Sidebar: React.FC = () => {
         <div><p className="text-[11px] font-bold">Ahdan Haqqin</p><p className="text-[9px] text-red-100/60">Peneliti</p></div>
       </div>
     </aside>
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#8b0000]/[.98] backdrop-blur border-t border-white/10 px-2 py-1.5 flex justify-around safe-area-bottom">
-      {navItems.map(item=>{const Icon=item.icon; return <NavLink key={item.path} to={item.path} className={({isActive})=>`flex flex-col items-center py-1.5 px-5 rounded-xl text-[9px] font-semibold ${isActive?'text-white bg-white/10':'text-red-100/60'}`}><Icon size={17}/><span className="mt-0.5">{item.label}</span></NavLink>})}
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#8b0000]/[.98] backdrop-blur border-t border-white/10 px-1.5 py-1.5 flex justify-around safe-area-bottom shadow-[0_-8px_24px_rgba(15,23,42,.12)]">
+      {[{path:'/beranda',label:'Beranda',icon:Home}, ...navItems].map(item=>{const Icon=item.icon; return <NavLink key={item.path} to={item.path} className={({isActive})=>`flex min-w-0 flex-1 max-w-[92px] flex-col items-center py-1.5 px-1 rounded-xl text-[8px] font-semibold ${isActive?'text-white bg-white/10':'text-red-100/65'}`}><Icon size={17}/><span className="mt-0.5 truncate max-w-full">{item.label}</span></NavLink>})}
     </nav>
   </>;
 };

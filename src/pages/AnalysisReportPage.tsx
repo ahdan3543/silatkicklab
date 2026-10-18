@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import html2pdf from 'html2pdf.js';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Printer,
+  Download,
   RotateCw,
   CheckCircle2,
   XCircle,
@@ -232,6 +234,7 @@ export const AnalysisReportPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [notes, setNotes] = useState<string>('');
   const [saveNoteSuccess, setSaveNoteSuccess] = useState<boolean>(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const loadReportData = async () => {
     if (!sessionId) return;
@@ -258,6 +261,23 @@ export const AnalysisReportPage: React.FC = () => {
     reportBuilderService.saveNotes(sessionId, notes);
     setSaveNoteSuccess(true);
     setTimeout(() => setSaveNoteSuccess(false), 2000);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!reportRef.current || !report) return;
+    try {
+      const safeName = (athlete?.name || 'atlet').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      await html2pdf().set({
+        margin: 8,
+        filename: `laporan-komparasi-${safeName}-${report.session.sessionCode}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] },
+      }).from(reportRef.current).save();
+    } catch (error) {
+      console.error('Gagal mengunduh PDF laporan:', error);
+    }
   };
 
   const handlePrint = () => {
@@ -289,7 +309,7 @@ export const AnalysisReportPage: React.FC = () => {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4 pb-8 font-sans text-dark print:p-0 print:m-0 print:max-w-none">
       {/* Top Action Bar */}
-      <div className="print:hidden flex items-center justify-between gap-4 bg-white p-3 border border-dark-border rounded-xl shadow-sm">
+      <div className="report-actionbar print:hidden flex items-center justify-between gap-4 bg-white p-3 border border-dark-border rounded-xl shadow-sm">
         <Button
           variant="outline"
           size="sm"
@@ -308,19 +328,29 @@ export const AnalysisReportPage: React.FC = () => {
           >
             Refresh
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Printer size={15} />}
-            onClick={handlePrint}
-          >
-            Cetak / Simpan PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Download size={15} />}
+              onClick={handleDownloadPdf}
+            >
+              Download PDF
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Printer size={15} />}
+              onClick={handlePrint}
+            >
+              Cetak / Simpan PDF
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* LEMBAR LAPORAN RESMI */}
-      <div className="bg-white border border-dark-border rounded-xl shadow-sm p-6 sm:p-7 space-y-3.5 print:border-none print:shadow-none print:p-0 print:space-y-3">
+      <div ref={reportRef} className="official-report bg-white border border-dark-border rounded-xl shadow-sm p-6 sm:p-7 space-y-3.5 print:border-none print:shadow-none print:p-0 print:space-y-3">
         
         {/* 1. KOP LAPORAN RESMI + LOGO UPI */}
         <div className="border-b-2 border-dark pb-3 flex items-center justify-between gap-4">

@@ -65,11 +65,6 @@ export const AthletePage: React.FC = () => {
       {/* Hero */}
       <section className="page-hero">
         <div className="page-hero-content">
-          <div className="flex items-center gap-2 text-[10px] font-bold">
-            <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 tracking-[.16em] text-[#a40000]">SILAT MOTION</span>
-            <span className="text-slate-400">›</span>
-            <span className="text-slate-500">Data Atlet</span>
-          </div>
           <h1 className="mt-5 text-[34px] sm:text-[43px] font-extrabold leading-none tracking-[-.045em] text-slate-900">Data <span className="text-[#a40000]">Atlet</span></h1>
           <p className="mt-3 max-w-[500px] text-[13px] sm:text-[15px] leading-relaxed text-slate-600">Kelola data atlet yang akan dianalisis dalam penelitian. Tambahkan, edit, atau lihat detail data atlet.</p>
           <Button onClick={() => { setEditing(null); setFormOpen(true); }} className="!mt-5 !rounded-full !bg-[#a40000] !px-6 !py-3 !font-bold !text-white shadow-lg shadow-red-900/15 hover:!bg-[#800000]" icon={<Plus size={17} />}>Tambah Atlet</Button>
@@ -107,7 +102,8 @@ export const AthletePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-100">
+        {/* Desktop table */}
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-100 hidden sm:block">
           <table className="w-full min-w-[940px] text-left">
             <thead className="bg-slate-50/90 border-b border-slate-100">
               <tr className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">
@@ -136,6 +132,38 @@ export const AthletePage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {/* Mobile athlete cards: no horizontal table scrolling on phones. */}
+        <div className="mt-5 space-y-3 sm:hidden">
+          {loading ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-8 text-center text-xs text-slate-400">Memuat data atlet...</div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-8 text-center text-xs text-slate-400">Tidak ada atlet yang sesuai.</div>
+          ) : filtered.map((a, index) => (
+            <article key={a.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_4px_16px_rgba(15,23,42,.035)]">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-50 to-rose-100 text-[#a40000] flex items-center justify-center font-extrabold text-xs shrink-0">{initials(a.name)}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0"><p className="font-extrabold text-sm text-slate-900 truncate">{a.name}</p><p className="text-[10px] text-slate-400 mt-1">Atlet #{index + 1} · {a.athleteCode || 'Tanpa ID'}</p></div>
+                    <Badge variant={a.status === 'Aktif' ? 'success' : 'neutral'}>{a.status || 'Aktif'}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2"><span className="block text-[9px] uppercase tracking-wide text-slate-400">Jenis Kelamin</span><b className="block mt-0.5 text-[10px] text-slate-700">{a.gender || '-'}</b></div>
+                    <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2"><span className="block text-[9px] uppercase tracking-wide text-slate-400">Kelas</span><b className="block mt-0.5 text-[10px] text-slate-700 truncate">{a.category || '-'}</b></div>
+                    <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2"><span className="block text-[9px] uppercase tracking-wide text-slate-400">Analisis</span><b className="block mt-0.5 text-[10px] text-slate-700">{sessionCount(a.id)} sesi</b></div>
+                    <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2"><span className="block text-[9px] uppercase tracking-wide text-slate-400">ID</span><b className="block mt-0.5 text-[10px] text-slate-700 truncate">{a.athleteCode || '-'}</b></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    <button onClick={()=>{setSelected(a);setDetailOpen(true)}} className="h-10 rounded-xl border border-slate-200 bg-white text-slate-500 flex items-center justify-center gap-1.5 text-[10px] font-bold"><Eye size={14}/> Detail</button>
+                    <button onClick={()=>{setEditing(a);setFormOpen(true)}} className="h-10 rounded-xl border border-slate-200 bg-white text-slate-500 flex items-center justify-center gap-1.5 text-[10px] font-bold"><Pencil size={14}/> Edit</button>
+                    <button onClick={()=>setDeleting(a)} className="h-10 rounded-xl border border-red-100 bg-red-50 text-red-500 flex items-center justify-center gap-1.5 text-[10px] font-bold"><Trash2 size={14}/> Hapus</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
         <div className="mt-5 flex items-center justify-between text-[11px] text-slate-400"><span>Menampilkan 1 - {filtered.length} dari {athletes.length} atlet</span><div className="flex gap-2"><button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-400">‹</button><button className="w-9 h-9 rounded-xl bg-[#a40000] text-white font-bold">1</button><button className="w-9 h-9 rounded-xl border border-slate-200 text-slate-400">›</button></div></div>
       </section>
 
