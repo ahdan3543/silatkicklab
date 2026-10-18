@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  BarChart2,
   ArrowUpRight,
   HelpCircle,
   Clock,
@@ -20,211 +19,229 @@ import { Badge } from '../components/ui/Badge';
 import { LoadingState } from '../components/ui/LoadingState';
 import { VideoCard } from '../features/video/VideoCard';
 import { UploadConfirmModal } from '../features/video/UploadConfirmModal';
-import { AccuracyDistanceChart } from '../features/analysis/AccuracyDistanceChart';
 import { TargetSetupModal } from '../features/analysis/TargetSetupModal';
-import { AnalysisSession, Athlete, Video, MAX_ATTEMPTS } from '../types';
+import { AnalysisSession, Athlete, Video } from '../types';
 import { SpeedAnalysisResult } from '../types/speed';
-import { TargetDefinition, AccuracyAnalysisResult, SessionAccuracySummary } from '../types/accuracy';
+import { TargetDefinition, AccuracyAnalysisResult } from '../types/accuracy';
 import { sessionService } from '../services/sessionService';
 import { athleteService } from '../services/athleteService';
 import { speedStorageService } from '../services/speed/speedStorageService';
 import { accuracyStorageService } from '../services/accuracy/accuracyStorageService';
-import { accuracyCalculationEngine } from '../services/accuracy/accuracyCalculationEngine';
 import { videoStorageService } from '../services/videoStorageService';
 import { formatDate } from '../utils/formatters';
 
-// Komponen Grafik Durasi Siklus Penuh (Full Kick Cycle: Start -> Impact -> Recovery)
-const SessionDurationBarChart: React.FC<{
+
+// Grafik hasil utama sesi: empat visualisasi yang fokus pada parameter yang benar-benar
+// dibutuhkan untuk membaca performa tendangan. Waktu memakai skala terbalik sehingga
+// waktu yang lebih kecil (lebih cepat) secara visual berada lebih tinggi.
+const SessionResultCharts: React.FC<{
   attempts: AnalysisSession['attempts'];
   speedResults: { [videoId: string]: SpeedAnalysisResult };
-}> = ({ attempts, speedResults }) => {
-  const height = 180;
-  const width = 500;
-  const padding = { top: 30, right: 25, bottom: 35, left: 45 };
-
-  // Hitung durasi siklus penuh (detik) untuk setiap percobaan
-  const cycleData = attempts.map((att) => {
-    if (!att.video || !speedResults[att.video.id]) {
-      return { duration: 0, peakSpeed: 0, label: '-' };
+  accuracyResults: { [videoId: string]: AccuracyAnalysisResult };
+}> = ({ attempts, speedResults, accuracyResults }) => {
+  const getCycleSpeed = (r: SpeedAnalysisResult) => {
+    if (!r.metersPerPixel || !r.trajectory?.length || r.kickStartTimestamp == null || r.recoveryTimestamp == null) return null;
+    if (r.recoveryTimestamp <= r.kickStartTimestamp) return null;
+    const pts = r.trajectory.filter(p => p.timestamp >= r.kickStartTimestamp! && p.timestamp <= r.recoveryTimestamp!);
+    if (pts.length < 2) return null;
+    let pathPx = 0;
+    for (let i = 1; i < pts.length; i++) {
+      pathPx += Math.hypot(pts[i].rawX - pts[i - 1].rawX, pts[i].rawY - pts[i - 1].rawY);
     }
-    const res = speedResults[att.video.id];
-    const fps = 30;
-
-    let durationSec = 0;
-    // 1. Jika fase recovery ada (siklus penuh)
-    if (res.recoveryFrame && res.kickStartFrame && res.recoveryFrame > res.kickStartFrame) {
-      durationSec = (res.recoveryFrame - res.kickStartFrame) / fps;
-    } else if (res.impactFrame && res.kickStartFrame && res.impactFrame > res.kickStartFrame) {
-      // Fallback jika belum set recovery: hitung fase serang
-      durationSec = (res.impactFrame - res.kickStartFrame) / fps;
-    } else if ((res as any).durationSeconds) {
-      durationSec = (res as any).durationSeconds;
-    }
-
-    const spd = res.calibrationAvailable && res.peakSpeedMetersPerSecond
-      ? res.peakSpeedMetersPerSecond
-      : 0;
-
-    return {
-      duration: durationSec,
-      peakSpeed: spd,
-      label: durationSec > 0 ? `${durationSec.toFixed(2)}s` : '-',
-    };
-  });
-
-  const validDurations = cycleData.map((d) => d.duration).filter((v) => v > 0);
-  const maxBenchmark = validDurations.length > 0 ? Math.max(...validDurations) : 1.5;
-  const maxVal = Math.max(1.5, Math.ceil(maxBenchmark * 1.3 * 10) / 10);
-
-  const getY = (val: number) => {
-    const clampedVal = Math.min(val, maxVal);
-    return (
-      height -
-      padding.bottom -
-      (clampedVal / maxVal) * (height - padding.top - padding.bottom)
-    );
+    const duration = r.recoveryTimestamp - r.kickStartTimestamp;
+    return duration > 0 ? (pathPx * r.metersPerPixel) / duration : null;
   };
 
-  return (
-    <div className="w-full bg-white border border-dark-border rounded-2xl shadow-xs p-4 sm:p-5 flex flex-col justify-between h-full">
-      <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-dark-border/60">
-        <div>
-          <h3 className="font-bold text-dark text-xs sm:text-sm">
-            Durasi Siklus Tendangan (Full Cycle)
-          </h3>
-          <p className="text-[11px] text-dark-secondary">
-            Waktu total: angkat kaki &rarr; benturan target &rarr; kembali ke posisi semula
-          </p>
+  const getPhaseTime = (r: SpeedAnalysisResult) =>
+    r.kickStartTimestamp != null && r.impactTimestamp != null && r.impactTimestamp > r.kickStartTimestamp
+      ? r.impactTimestamp - r.kickStartTimestamp : null;
+
+  const getCycleTime = (r: SpeedAnalysisResult) =>
+    r.kickStartTimestamp != null && r.recoveryTimestamp != null && r.recoveryTimestamp > r.kickStartTimestamp
+      ? r.recoveryTimestamp - r.kickStartTimestamp : null;
+
+  type ChartMode = 'phase' | 'cycle' | 'peakAccuracy' | 'deviation';
+  const charts: { mode: ChartMode; title: string; subtitle: string }[] = [
+    { mode: 'phase', title: 'Kecepatan Fase & Waktu', subtitle: 'Start → Impact · kecepatan dan waktu fase' },
+    { mode: 'cycle', title: 'Kecepatan Siklus & Waktu', subtitle: 'Start → Recovery · kecepatan dan waktu siklus' },
+    { mode: 'peakAccuracy', title: 'Kecepatan Puncak & Akurasi', subtitle: 'Kecepatan maksimum dibandingkan hasil bidikan' },
+    { mode: 'deviation', title: 'Simpangan Titik Impact', subtitle: 'Jarak titik impact aktual terhadap pusat target' },
+  ];
+
+  const Chart: React.FC<{ mode: ChartMode; title: string; subtitle: string }> = ({ mode, title, subtitle }) => {
+    const values = attempts.map(att => {
+      const r = att.video ? speedResults[att.video.id] : undefined;
+      const a = att.video ? accuracyResults[att.video.id] : undefined;
+      if (mode === 'phase') return { speed: r?.averageSpeedMetersPerSecond ?? null, time: r ? getPhaseTime(r) : null };
+      if (mode === 'cycle') return { speed: r ? getCycleSpeed(r) : null, time: r ? getCycleTime(r) : null };
+      if (mode === 'peakAccuracy') return {
+        speed: r?.peakSpeedMetersPerSecond ?? null,
+        accuracy: a?.finalResult === 'hit' ? 100 : a?.finalResult === 'miss' ? 0 : null,
+        status: a?.finalResult ?? null,
+      };
+      return { deviation: a?.distanceCentimeters ?? null, hit: a?.finalResult === 'hit' };
+    });
+
+    const width = 980;
+    const height = 450;
+    const pad = { top: 58, right: mode === 'deviation' ? 54 : 78, bottom: 78, left: 70 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const groupW = plotW / Math.max(attempts.length, 1);
+    const baseline = height - pad.bottom;
+
+    const speedValues = values.map(v => 'speed' in v ? v.speed : null).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0);
+    const deviationValues = values.map(v => 'deviation' in v ? v.deviation : null).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0);
+    const maxSpeed = Math.max(5, Math.ceil((speedValues.length ? Math.max(...speedValues) : 5) * 1.18 * 10) / 10);
+    const maxDeviation = Math.max(10, Math.ceil((deviationValues.length ? Math.max(...deviationValues) : 10) * 1.25 * 10) / 10);
+
+    const times = values.map(v => 'time' in v ? v.time : null);
+    const validTimes = times.filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0);
+    const minTime = validTimes.length ? Math.min(...validTimes) : 0;
+    const maxTime = validTimes.length ? Math.max(...validTimes) : 1;
+    const timeRange = Math.max(maxTime - minTime, 0.01);
+
+    // Waktu menggunakan skala terbalik: nilai waktu terkecil menghasilkan bar tertinggi.
+    const getTimeHeight = (t: number) => ((maxTime - t) / timeRange) * plotH;
+    const getSpeedY = (v: number) => baseline - (Math.min(v, maxSpeed) / maxSpeed) * plotH;
+    const getDeviationY = (v: number) => baseline - (Math.min(v, maxDeviation) / maxDeviation) * plotH;
+    const getAccuracyY = (v: number) => baseline - (v / 100) * plotH;
+
+    const ticks = [0, 0.5, 1].map(ratio => ratio);
+
+    return (
+      <div className="rounded-2xl border border-dark-border bg-white p-5 sm:p-6 shadow-xs min-w-0">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-lg sm:text-xl font-bold text-dark">{title}</h3>
+            <p className="text-xs sm:text-sm text-dark-secondary mt-1">{subtitle}</p>
+          </div>
+          <span className="shrink-0 text-[10px] sm:text-xs font-mono font-bold px-2.5 py-1.5 rounded-lg bg-slate-50 border border-dark-border">
+            {mode === 'deviation' ? 'cm' : mode === 'peakAccuracy' ? 'm/s · %' : 'm/s · s'}
+          </span>
         </div>
-        <span className="font-mono font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded text-[11px]">
-          Detik (s)
-        </span>
-      </div>
 
-      <div className="w-full aspect-[16/9] max-h-[200px] relative my-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-          {/* Garis Grid Y Atas */}
-          <line
-            x1={padding.left}
-            y1={getY(maxVal)}
-            x2={width - padding.right}
-            y2={getY(maxVal)}
-            stroke="#E2E8F0"
-            strokeWidth="1"
-            strokeDasharray="3 3"
-          />
-          <text
-            x={padding.left - 8}
-            y={getY(maxVal) + 3}
-            fill="#94A3B8"
-            fontSize="9"
-            textAnchor="end"
-            fontFamily="monospace"
-          >
-            {maxVal.toFixed(1)}s
-          </text>
-
-          {/* Garis Grid Y Tengah */}
-          <line
-            x1={padding.left}
-            y1={getY(maxVal / 2)}
-            x2={width - padding.right}
-            y2={getY(maxVal / 2)}
-            stroke="#F1F5F9"
-            strokeWidth="1"
-          />
-          <text
-            x={padding.left - 8}
-            y={getY(maxVal / 2) + 3}
-            fill="#94A3B8"
-            fontSize="9"
-            textAnchor="end"
-            fontFamily="monospace"
-          >
-            {(maxVal / 2).toFixed(1)}s
-          </text>
-
-          {/* Garis Sumbu X */}
-          <line
-            x1={padding.left}
-            y1={height - padding.bottom}
-            x2={width - padding.right}
-            y2={height - padding.bottom}
-            stroke="#CBD5E1"
-            strokeWidth="1.5"
-          />
-          <text
-            x={padding.left - 8}
-            y={height - padding.bottom + 3}
-            fill="#94A3B8"
-            fontSize="9"
-            textAnchor="end"
-            fontFamily="monospace"
-          >
-            0
-          </text>
-
-          {attempts.map((att, idx) => {
-            const totalGroups = attempts.length || 5;
-            const groupWidth = (width - padding.left - padding.right) / totalGroups;
-            const barWidth = 24;
-            const x = padding.left + idx * groupWidth + (groupWidth - barWidth) / 2;
-
-            const data = cycleData[idx];
-            const bY = getY(data.duration);
-            const bHeight = Math.max(4, height - padding.bottom - bY);
-
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[350px] sm:h-[390px] overflow-visible" preserveAspectRatio="xMidYMid meet">
+          {ticks.map((ratio, i) => {
+            const y = pad.top + plotH * ratio;
+            const speedTick = maxSpeed * (1 - ratio);
             return (
-              <g key={att.id}>
-                {data.duration > 0 && (
-                  <rect
-                    x={x}
-                    y={bY}
-                    width={barWidth}
-                    height={bHeight}
-                    rx="3"
-                    fill="#0284C7"
-                    className="transition-all hover:opacity-90"
-                  />
-                )}
-
-                {/* Nilai Durasi */}
-                <text
-                  x={x + barWidth / 2}
-                  y={data.duration > 0 ? bY - 4 : height - padding.bottom - 8}
-                  fill={data.duration > 0 ? '#0369A1' : '#94A3B8'}
-                  fontSize="8.5"
-                  textAnchor="middle"
-                  fontWeight="bold"
-                  fontFamily="monospace"
-                >
-                  {data.label}
-                </text>
-
-                {/* Label Percobaan */}
-                <text
-                  x={x + barWidth / 2}
-                  y={height - 18}
-                  fill="#64748B"
-                  fontSize="9.5"
-                  textAnchor="middle"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                >
-                  P#{att.attemptNumber}
+              <g key={`grid-${i}`}>
+                <line x1={pad.left} y1={y} x2={width - pad.right} y2={y} stroke={i === 2 ? '#CBD5E1' : '#E2E8F0'} strokeDasharray={i === 2 ? undefined : '5 5'} />
+                <text x={pad.left - 12} y={y + 5} fill="#64748B" fontSize="13" textAnchor="end" fontWeight="600">
+                  {mode === 'deviation' ? (maxDeviation * (1 - ratio)).toFixed(1) : mode === 'peakAccuracy' || mode === 'phase' || mode === 'cycle' ? speedTick.toFixed(1) : ''}
                 </text>
               </g>
             );
           })}
-        </svg>
-      </div>
 
-      <div className="flex items-center justify-center gap-6 text-[11px] font-medium text-dark-secondary pt-2.5 border-t border-dark-border/60">
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-xs bg-[#0284C7] inline-block" /> Durasi Siklus Penuh (s)
-        </span>
+          {(mode === 'phase' || mode === 'cycle') && validTimes.length > 0 && (
+            <g>
+              <text x={width - pad.right + 12} y={pad.top + 4} fill="#2563EB" fontSize="12" fontWeight="800">Waktu lebih cepat ↑</text>
+              <text x={width - pad.right + 12} y={pad.top + 21} fill="#64748B" fontSize="11" fontWeight="600">{minTime.toFixed(2)} s</text>
+              <text x={width - pad.right + 12} y={baseline + 4} fill="#64748B" fontSize="11" fontWeight="600">{maxTime.toFixed(2)} s</text>
+            </g>
+          )}
+
+          {mode === 'peakAccuracy' && (
+            <g>
+              <line x1={width - pad.right + 2} y1={pad.top} x2={width - pad.right + 2} y2={baseline} stroke="#CBD5E1" />
+              <text x={width - pad.right + 14} y={pad.top + 4} fill="#059669" fontSize="12" fontWeight="800">Akurasi</text>
+              <text x={width - pad.right + 14} y={pad.top + 21} fill="#64748B" fontSize="11" fontWeight="600">100%</text>
+              <text x={width - pad.right + 14} y={baseline + 4} fill="#64748B" fontSize="11" fontWeight="600">0%</text>
+            </g>
+          )}
+
+          {attempts.map((att, idx) => {
+            const v: any = values[idx];
+            const cx = pad.left + idx * groupW + groupW / 2;
+            const isGrouped = mode === 'phase' || mode === 'cycle' || mode === 'peakAccuracy';
+            const barW = isGrouped ? Math.min(48, groupW * 0.24) : Math.min(64, groupW * 0.34);
+            const gap = isGrouped ? Math.min(10, groupW * 0.045) : 0;
+            const speedX = cx - barW - gap / 2;
+            const secondX = cx + gap / 2;
+
+            if (mode === 'phase' || mode === 'cycle') {
+              const speed = v.speed;
+              const time = v.time;
+              const speedY = typeof speed === 'number' ? getSpeedY(speed) : baseline;
+              const speedH = typeof speed === 'number' ? Math.max(5, baseline - speedY) : 0;
+              const timeH = typeof time === 'number' ? Math.max(7, getTimeHeight(time)) : 0;
+              const timeY = baseline - timeH;
+              return (
+                <g key={att.id}>
+                  {speedH > 0 && <rect x={speedX} y={speedY} width={barW} height={speedH} rx="6" fill="#800000" />}
+                  {timeH > 0 && <rect x={secondX} y={timeY} width={barW} height={timeH} rx="6" fill="#2563EB" />}
+                  {typeof speed === 'number' && <text x={speedX + barW / 2} y={Math.max(22, speedY - 9)} fill="#800000" fontSize="14" textAnchor="middle" fontWeight="800">{speed.toFixed(2)}</text>}
+                  {typeof time === 'number' && <text x={secondX + barW / 2} y={Math.max(22, timeY - 9)} fill="#2563EB" fontSize="14" textAnchor="middle" fontWeight="800">{time.toFixed(2)} s</text>}
+                  <text x={speedX + barW / 2} y={height - 39} fill="#800000" fontSize="11" textAnchor="middle" fontWeight="800">m/s</text>
+                  <text x={secondX + barW / 2} y={height - 39} fill="#2563EB" fontSize="11" textAnchor="middle" fontWeight="800">waktu</text>
+                  <text x={cx} y={height - 14} fill="#334155" fontSize="13" textAnchor="middle" fontWeight="800">P#{att.attemptNumber}</text>
+                </g>
+              );
+            }
+
+            if (mode === 'peakAccuracy') {
+              const speed = v.speed;
+              const accuracy = v.accuracy;
+              const speedY = typeof speed === 'number' ? getSpeedY(speed) : baseline;
+              const speedH = typeof speed === 'number' ? Math.max(5, baseline - speedY) : 0;
+              const accH = typeof accuracy === 'number' ? Math.max(7, (accuracy / 100) * plotH) : 0;
+              const accY = baseline - accH;
+              const hit = v.status === 'hit';
+              const accFill = hit ? '#10B981' : '#F43F5E';
+              return (
+                <g key={att.id}>
+                  {speedH > 0 && <rect x={speedX} y={speedY} width={barW} height={speedH} rx="6" fill="#800000" />}
+                  {accH > 0 && <rect x={secondX} y={accY} width={barW} height={accH} rx="6" fill={accFill} />}
+                  {typeof speed === 'number' && <text x={speedX + barW / 2} y={Math.max(22, speedY - 9)} fill="#800000" fontSize="14" textAnchor="middle" fontWeight="800">{speed.toFixed(2)}</text>}
+                  {typeof accuracy === 'number' && <text x={secondX + barW / 2} y={Math.max(22, accY - 9)} fill={accFill} fontSize="14" textAnchor="middle" fontWeight="800">{accuracy}%</text>}
+                  <text x={speedX + barW / 2} y={height - 39} fill="#800000" fontSize="11" textAnchor="middle" fontWeight="800">m/s</text>
+                  <text x={secondX + barW / 2} y={height - 39} fill={accFill} fontSize="11" textAnchor="middle" fontWeight="800">{hit ? 'HIT' : v.status === 'miss' ? 'MISS' : '—'}</text>
+                  <text x={cx} y={height - 14} fill="#334155" fontSize="13" textAnchor="middle" fontWeight="800">P#{att.attemptNumber}</text>
+                </g>
+              );
+            }
+
+            const deviation = v.deviation;
+            const y = typeof deviation === 'number' ? getDeviationY(deviation) : baseline;
+            const h = typeof deviation === 'number' ? Math.max(5, baseline - y) : 0;
+            const hit = v.hit;
+            const fill = hit ? '#10B981' : '#F43F5E';
+            return (
+              <g key={att.id}>
+                {h > 0 && <rect x={cx - barW / 2} y={y} width={barW} height={h} rx="6" fill={fill} />}
+                {typeof deviation === 'number' && <text x={cx} y={Math.max(22, y - 10)} fill={fill} fontSize="14" textAnchor="middle" fontWeight="800">{deviation.toFixed(1)} cm</text>}
+                <text x={cx} y={height - 39} fill={fill} fontSize="11" textAnchor="middle" fontWeight="800">{hit ? 'HIT' : 'MISS'}</text>
+                <text x={cx} y={height - 14} fill="#334155" fontSize="13" textAnchor="middle" fontWeight="800">P#{att.attemptNumber}</text>
+              </g>
+            );
+          })}
+        </svg>
+
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-4 border-t border-dark-border/60 text-xs sm:text-sm font-semibold text-dark-secondary">
+          {mode !== 'deviation' && <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#800000]" /> Kecepatan (m/s)</span>}
+          {(mode === 'phase' || mode === 'cycle') && <span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#2563EB]" /> Waktu (s) · makin kecil makin cepat</span>}
+          {mode === 'peakAccuracy' && <><span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#10B981]" /> Akurasi HIT</span><span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#F43F5E]" /> Akurasi MISS</span></>}
+          {mode === 'deviation' && <><span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#10B981]" /> HIT</span><span className="inline-flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-[#F43F5E]" /> MISS</span></>}
+        </div>
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <Card className="w-full p-5 sm:p-6">
+      <div className="flex items-end justify-between gap-3 mb-5">
+        <div>
+          <h2 className="font-bold text-dark text-xl sm:text-2xl">Grafik Hasil Analisis</h2>
+          <p className="text-sm text-dark-secondary mt-1">Perbandingan kecepatan, waktu, kecepatan puncak, dan akurasi pada 5 percobaan</p>
+        </div>
+        <span className="shrink-0 text-[10px] sm:text-xs font-mono font-bold text-[#800000] bg-[#800000]/10 border border-[#800000]/20 px-2.5 py-1.5 rounded-lg">Hasil utama</span>
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        {charts.map(chart => <Chart key={chart.mode} {...chart} />)}
+      </div>
+    </Card>
   );
 };
 
@@ -237,7 +254,6 @@ export const SessionDetailPage: React.FC = () => {
   const [speedResults, setSpeedResults] = useState<{ [videoId: string]: SpeedAnalysisResult }>({});
   const [target, setTarget] = useState<TargetDefinition | null>(null);
   const [accuracyResults, setAccuracyResults] = useState<{ [videoId: string]: AccuracyAnalysisResult }>({});
-  const [accuracySummary, setAccuracySummary] = useState<SessionAccuracySummary | null>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState<boolean>(false);
@@ -263,7 +279,6 @@ export const SessionDetailPage: React.FC = () => {
 
         const spdMap: { [videoId: string]: SpeedAnalysisResult } = {};
         const accMap: { [videoId: string]: AccuracyAnalysisResult } = {};
-        const accList: AccuracyAnalysisResult[] = [];
 
         for (const att of sessionData.attempts) {
           if (att.video && att.video.id) {
@@ -274,16 +289,12 @@ export const SessionDetailPage: React.FC = () => {
             if (spd) spdMap[att.video.id] = spd;
             if (acc) {
               accMap[att.video.id] = acc;
-              accList.push(acc);
             }
           }
         }
 
         setSpeedResults(spdMap);
         setAccuracyResults(accMap);
-        if (accList.length > 0) {
-          setAccuracySummary(accuracyCalculationEngine.computeSessionSummary(accList));
-        }
       }
     } catch (err) {
       console.error('Gagal mengambil detail sesi:', err);
@@ -433,15 +444,6 @@ export const SessionDetailPage: React.FC = () => {
 
         <div className="flex items-center gap-2 shrink-0">
           <Button
-            variant="primary"
-            size="sm"
-            className="h-8 px-3 text-xs"
-            icon={<BarChart2 size={13} />}
-            onClick={() => navigate(`/hasil/${session.id}`)}
-          >
-            Komparasi
-          </Button>
-          <Button
             variant="outline"
             size="sm"
             className="h-8 px-3 text-xs"
@@ -453,72 +455,28 @@ export const SessionDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. STATS & INFO TERPADU (FULL WIDTH) */}
-      <div className="session-info-grid w-full grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-950 text-white border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300">
-              Akurasi Sesi
-            </span>
-            <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded">
-              {accuracySummary ? `${accuracySummary.hitsCount}/${accuracySummary.validAttempts} HIT` : '-'}
-            </span>
+      {/* 2. INFO ATLET & SESI */}
+      <Card className="w-full p-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="text-dark-secondary text-xs block">Atlet</span>
+            <span className="font-bold text-dark truncate block mt-1">{athlete ? athlete.name : session.athleteName}</span>
+            <span className="font-mono text-[11px] text-dark-secondary">{athlete ? athlete.athleteCode : '-'}</span>
           </div>
-
-          <div className="my-2 flex items-baseline gap-2">
-            <h2 className="text-3xl font-black font-mono tracking-tight text-white">
-              {accuracySummary?.accuracyPercentage !== null && accuracySummary?.accuracyPercentage !== undefined
-                ? `${accuracySummary.accuracyPercentage.toFixed(1)}%`
-                : '-'}
-            </h2>
-            <span className="text-xs text-slate-400 font-medium">
-              ({accuracySummary?.validAttempts || 0}/{MAX_ATTEMPTS} Valid)
-            </span>
+          <div>
+            <span className="text-dark-secondary text-xs block">Tanggal Sesi</span>
+            <span className="font-bold text-dark block mt-1">{formatDate(session.date)}</span>
           </div>
-
-          <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-800 flex justify-between">
-            <span>Rerata Deviasi</span>
-            <span className="text-white font-mono font-bold">
-              {accuracySummary?.averageDistanceCm ? `${accuracySummary.averageDistanceCm.toFixed(1)} cm` : '-'}
-            </span>
+          <div>
+            <span className="text-dark-secondary text-xs block">Kaki Uji</span>
+            <span className="font-bold text-[#800000] block mt-1">Kaki {session.kickingLeg}</span>
           </div>
-        </Card>
-
-        <Card className="md:col-span-2 p-4 flex flex-col justify-center">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div>
-              <span className="text-dark-secondary text-[11px] block">Atlet</span>
-              <span className="font-bold text-dark truncate block mt-0.5">
-                {athlete ? athlete.name : session.athleteName}
-              </span>
-              <span className="font-mono text-[10px] text-dark-secondary">
-                {athlete ? athlete.athleteCode : '-'}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-dark-secondary text-[11px] block">Tanggal Sesi</span>
-              <span className="font-bold text-dark block mt-0.5">
-                {formatDate(session.date)}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-dark-secondary text-[11px] block">Kaki Uji</span>
-              <span className="font-bold text-[#800000] block mt-0.5">
-                Kaki {session.kickingLeg}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-dark-secondary text-[11px] block">Target Bidik</span>
-              <span className={`font-bold block mt-0.5 ${target ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {target ? 'Terkalibrasi' : 'Belum Ada'}
-              </span>
-            </div>
+          <div>
+            <span className="text-dark-secondary text-xs block">Target Bidik</span>
+            <span className={`font-bold block mt-1 ${target ? 'text-emerald-700' : 'text-amber-700'}`}>{target ? 'Terkalibrasi' : 'Belum Ada'}</span>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* 3. GRID 5 PERCOBAAN TENDANGAN */}
       <div className="w-full space-y-2">
@@ -563,21 +521,22 @@ export const SessionDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. TABEL REKAPITULASI PARAMETER KINEMATIKA LENGKAP */}
+      {/* 4. REKAP PARAMETER — ringkas, tanpa kolom waktu yang dobel */}
       <Card className="w-full p-0 overflow-hidden border-dark-border/80 shadow-xs">
-        <div className="px-4 py-3 border-b border-dark-border/60 bg-slate-50/50 flex items-center justify-between">
-          <h2 className="text-xs sm:text-sm font-bold text-dark">
-            Rekapitulasi Parameter Kinematika & Biomekanika
-          </h2>
-          <span className="text-[11px] text-dark-secondary font-mono">Full Cycle & Accuracy</span>
+        <div className="px-4 py-3 border-b border-dark-border/60 bg-slate-50/50 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xs sm:text-sm font-bold text-dark">Rekapitulasi Parameter Kinematika & Biomekanika</h2>
+            <p className="text-[10px] text-dark-secondary mt-0.5">Kecepatan, waktu, akurasi, dan status setiap percobaan</p>
+          </div>
+          <span className="hidden sm:inline text-[10px] text-dark-secondary font-mono">5 Percobaan</span>
         </div>
-
         <div className="w-full overflow-x-auto">
-          <table className="w-full text-left text-xs text-dark">
-            <thead className="bg-slate-50 border-b border-dark-border text-[11px] uppercase font-semibold text-dark-secondary">
+          <table className="w-full min-w-[980px] text-left text-xs text-dark">
+            <thead className="bg-slate-50 border-b border-dark-border text-[10px] uppercase font-semibold text-dark-secondary">
               <tr>
                 <th className="px-4 py-3">Percobaan</th>
-                <th className="px-4 py-3">Durasi Siklus Penuh</th>
+                <th className="px-4 py-3">Start → Impact</th>
+                <th className="px-4 py-3">Siklus Penuh</th>
                 <th className="px-4 py-3">Kecepatan Puncak</th>
                 <th className="px-4 py-3">Deviasi Sasaran</th>
                 <th className="px-4 py-3">Status</th>
@@ -585,102 +544,38 @@ export const SessionDetailPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-dark-border/50">
-              {session.attempts.map((att) => {
+              {session.attempts.map(att => {
                 const hasVideo = checkHasValidVideo(att);
                 const spd = hasVideo && att.video ? speedResults[att.video.id] : null;
                 const acc = hasVideo && att.video ? accuracyResults[att.video.id] : null;
-
-                const isHit = acc?.finalResult === 'hit';
-                const isMiss = acc?.finalResult === 'miss';
-                const isInvalid = acc?.finalResult === 'invalid';
-
-                return (
-                  <tr key={att.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-bold text-dark flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-slate-100 border border-dark-border flex items-center justify-center text-[10px] font-mono">
-                        {att.attemptNumber}
-                      </span>
-                      <span>#{att.attemptNumber}</span>
-                    </td>
-
-                    {/* Kolom Durasi Siklus Penuh (Detik) */}
-                    <td className="px-4 py-3 font-mono font-bold text-sky-700">
-                      {hasVideo ? getCycleDuration(att.id, att.video?.id) : '-'}
-                    </td>
-
-                    {/* Kolom Kecepatan Puncak */}
-                    <td className="px-4 py-3 font-mono font-bold text-[#800000]">
-                      {spd ? (
-                        spd.calibrationAvailable && spd.peakSpeedMetersPerSecond ? (
-                          <span>{spd.peakSpeedMetersPerSecond.toFixed(1)} <span className="text-[10px] font-normal text-dark-secondary">m/s</span></span>
-                        ) : (
-                          <span>{spd.peakSpeedPixelsPerSecond.toFixed(0)} <span className="text-[10px] font-normal text-dark-secondary">px/s</span></span>
-                        )
-                      ) : (
-                        <span className="text-dark-secondary font-normal">-</span>
-                      )}
-                    </td>
-
-                    {/* Kolom Deviasi Sasaran */}
-                    <td className="px-4 py-3 font-mono text-dark font-medium">
-                      {acc ? (
-                        acc.distanceCentimeters !== null && acc.distanceCentimeters !== undefined ? (
-                          <span className="font-semibold">{acc.distanceCentimeters.toFixed(1)} cm</span>
-                        ) : (
-                          <span className="text-dark-secondary">{acc.distancePixels?.toFixed(1)} px</span>
-                        )
-                      ) : (
-                        <span className="text-dark-secondary">-</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3">
-                      {isHit && (
-                        <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold text-[10px]">
-                          <CheckCircle2 size={12} /> HIT
-                        </span>
-                      )}
-                      {isMiss && (
-                        <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold text-[10px]">
-                          <XCircle size={12} /> MISS
-                        </span>
-                      )}
-                      {isInvalid && (
-                        <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-semibold text-[10px]">
-                          <AlertCircle size={12} /> INVALID
-                        </span>
-                      )}
-                      {!acc && <span className="text-dark-secondary text-[10px]">Belum Ada</span>}
-                    </td>
-
-                    <td className="px-4 py-3 text-right">
-                      {hasVideo ? (
-                        <button
-                          onClick={() => navigate(`/analisis/${session.id}/attempt/${att.id}`)}
-                          className="font-semibold text-[#800000] hover:underline inline-flex items-center gap-0.5 text-[11px]"
-                        >
-                          Review <ArrowUpRight size={12} />
-                        </button>
-                      ) : (
-                        <span className="text-dark-secondary">-</span>
-                      )}
-                    </td>
-                  </tr>
-                );
+                const phaseTime = spd?.kickStartTimestamp != null && spd?.impactTimestamp != null && spd.impactTimestamp > spd.kickStartTimestamp ? spd.impactTimestamp - spd.kickStartTimestamp : null;
+                const cycleTime = spd?.kickStartTimestamp != null && spd?.recoveryTimestamp != null && spd.recoveryTimestamp > spd.kickStartTimestamp ? spd.recoveryTimestamp - spd.kickStartTimestamp : null;
+                const cycleSpeed = spd ? (() => {
+                  if (!spd.metersPerPixel || !spd.trajectory?.length || spd.kickStartTimestamp == null || spd.recoveryTimestamp == null || spd.recoveryTimestamp <= spd.kickStartTimestamp) return null;
+                  const pts = spd.trajectory.filter(p => p.timestamp >= spd.kickStartTimestamp! && p.timestamp <= spd.recoveryTimestamp!);
+                  if (pts.length < 2) return null;
+                  let pathPx = 0;
+                  for (let i=1;i<pts.length;i++) pathPx += Math.hypot(pts[i].rawX-pts[i-1].rawX, pts[i].rawY-pts[i-1].rawY);
+                  return (pathPx * spd.metersPerPixel) / (spd.recoveryTimestamp - spd.kickStartTimestamp);
+                })() : null;
+                const hit = acc?.finalResult === 'hit', miss = acc?.finalResult === 'miss', invalid = acc?.finalResult === 'invalid';
+                return <tr key={att.id} className="hover:bg-slate-50 transition-colors align-middle">
+                  <td className="px-4 py-3 font-bold"><span className="inline-flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-slate-100 border border-dark-border flex items-center justify-center text-[10px] font-mono">{att.attemptNumber}</span>#{att.attemptNumber}</span></td>
+                  <td className="px-4 py-3"><div className="font-mono font-bold text-[#800000]">{spd?.averageSpeedMetersPerSecond ? `${spd.averageSpeedMetersPerSecond.toFixed(2)} m/s` : '-'}</div><div className="text-[9px] text-dark-secondary mt-0.5">{phaseTime != null ? `${phaseTime.toFixed(2)} s` : 'waktu belum tersedia'}</div></td>
+                  <td className="px-4 py-3"><div className="font-mono font-bold text-sky-700">{cycleSpeed ? `${cycleSpeed.toFixed(2)} m/s` : '-'}</div><div className="text-[9px] text-dark-secondary mt-0.5">{cycleTime != null ? `${cycleTime.toFixed(2)} s` : 'durasi belum tersedia'}</div></td>
+                  <td className="px-4 py-3 font-mono font-bold text-[#800000]">{spd ? `${spd.peakSpeedMetersPerSecond.toFixed(2)} m/s` : '-'}</td>
+                  <td className="px-4 py-3 font-mono font-medium">{acc?.distanceCentimeters != null ? `${acc.distanceCentimeters.toFixed(1)} cm` : acc?.distancePixels != null ? `${acc.distancePixels.toFixed(1)} px` : '-'}</td>
+                  <td className="px-4 py-3">{hit && <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold text-[10px]"><CheckCircle2 size={12}/> HIT</span>}{miss && <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold text-[10px]"><XCircle size={12}/> MISS</span>}{invalid && <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-semibold text-[10px]"><AlertCircle size={12}/> INVALID</span>}{!acc && <span className="text-dark-secondary text-[10px]">Belum Ada</span>}</td>
+                  <td className="px-4 py-3 text-right">{hasVideo ? <button onClick={()=>navigate(`/analisis/${session.id}/attempt/${att.id}`)} className="font-semibold text-[#800000] hover:underline inline-flex items-center gap-0.5 text-[11px]">Review <ArrowUpRight size={12}/></button> : <span className="text-dark-secondary">-</span>}</td>
+                </tr>;
               })}
             </tbody>
           </table>
         </div>
       </Card>
 
-      {/* 5. VISUALISASI DUA GRAFIK (GRAFIK 1: DURASI SIKLUS PENUH, GRAFIK 2: SIMPANGAN TARGET) */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-        <SessionDurationBarChart
-          attempts={session.attempts}
-          speedResults={speedResults}
-        />
-        <AccuracyDistanceChart results={accuracyResultsList} />
-      </div>
+      {/* 5. GRAFIK HASIL UTAMA */}
+      <SessionResultCharts attempts={session.attempts} speedResults={speedResults} accuracyResults={accuracyResults} />
 
       {/* 6. GLOSARIUM */}
       <div className="w-full bg-slate-900 text-white rounded-xl border border-slate-800 overflow-hidden">

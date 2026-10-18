@@ -389,15 +389,24 @@ export const VideoAnalysisView: React.FC = () => {
 
     let phases = customPhases
       ? {
-          startFrame: customPhases.start,
-          extensionFrame: customPhases.ext,
-          impactFrame: customPhases.impact,
-          recoveryFrame: customPhases.rec,
+          // Marker manual tetap menjadi sumber utama; hanya dirapikan urutannya
+          // agar Start < Extension <= Impact < Recovery dan tidak menghasilkan
+          // durasi negatif/0 pada laporan.
+          startFrame: Math.max(1, Math.floor(customPhases.start)),
+          extensionFrame: Math.max(1, Math.floor(customPhases.ext)),
+          impactFrame: Math.max(1, Math.floor(customPhases.impact)),
+          recoveryFrame: Math.max(1, Math.floor(customPhases.rec)),
         }
       : speedCalculationEngine.autoDetectPhases(trajectory);
 
     const totalF = currentPose.totalFrames || 60;
-    if (phases.startFrame >= phases.impactFrame) {
+    if (customPhases) {
+      const start = Math.min(phases.startFrame, Math.max(1, totalF - 3));
+      const ext = Math.min(Math.max(phases.extensionFrame, start + 1), Math.max(start + 1, totalF - 2));
+      const impact = Math.min(Math.max(phases.impactFrame, ext + 1), Math.max(ext + 1, totalF - 1));
+      const recovery = Math.min(Math.max(phases.recoveryFrame, impact + 1), totalF);
+      phases = { startFrame: start, extensionFrame: ext, impactFrame: impact, recoveryFrame: recovery };
+    } else if (phases.startFrame >= phases.impactFrame) {
       phases = {
         startFrame: Math.max(1, Math.floor(totalF * 0.2)),
         extensionFrame: Math.floor(totalF * 0.45),
@@ -898,7 +907,7 @@ export const VideoAnalysisView: React.FC = () => {
       </div>
 
       {/* Kontrol Pemutar Video Bawah */}
-      <div className={`p-2.5 sm:p-3 rounded-xl bg-slate-900 border border-slate-800 text-white space-y-2 ${isFullScreenMode ? 'mx-2 mb-2 sm:mx-4 sm:mb-4' : ''}`}>
+      <div className={`video-analysis-controls p-2.5 sm:p-3 rounded-xl bg-slate-900 border border-slate-800 text-white space-y-2 ${isFullScreenMode ? 'mx-2 mb-2 sm:mx-4 sm:mb-4' : ''}`}>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-slate-400 shrink-0">
             {formatDuration(currentTime)}
@@ -1017,7 +1026,7 @@ export const VideoAnalysisView: React.FC = () => {
   );
 
   return (
-    <div className="w-full space-y-3 sm:space-y-4 pb-20 md:pb-8 px-2 sm:px-6">
+    <div className="video-analysis-page w-full space-y-3 sm:space-y-4 pb-20 md:pb-8 px-2 sm:px-6">
       {/* Header Bar */}
       <div className="w-full flex items-center justify-between gap-2 bg-white px-3.5 py-2.5 sm:px-5 sm:py-3.5 rounded-xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -1063,7 +1072,7 @@ export const VideoAnalysisView: React.FC = () => {
       </div>
 
       {/* Main Workspace */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
+      <div className="video-analysis-workspace w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
         {/* Sisi Kiri: Video Workspace */}
         <div className="lg:col-span-7 space-y-3">
           <div className="bg-slate-950 p-1.5 sm:p-3 rounded-2xl border border-slate-900 shadow-sm">
@@ -1075,7 +1084,7 @@ export const VideoAnalysisView: React.FC = () => {
         <div className="lg:col-span-5 space-y-3">
           {accuracyResult && target ? (
             <div
-              className={`p-4 rounded-2xl border text-white shadow-subtle relative overflow-hidden ${
+              className={`video-analysis-result-card p-4 rounded-2xl border text-white shadow-subtle relative overflow-hidden ${
                 accuracyResult.finalResult === 'hit'
                   ? 'bg-gradient-to-br from-emerald-800 to-emerald-600 border-emerald-500/80'
                   : 'bg-gradient-to-br from-rose-900 to-rose-700 border-rose-600/80'
@@ -1263,32 +1272,6 @@ export const VideoAnalysisView: React.FC = () => {
           className="fixed left-0 top-0 z-[99999] m-0 flex flex-col overflow-hidden bg-black p-0 animate-fadeIn"
           style={{ width: '100vw', height: '100dvh', minHeight: '100dvh', inset: 0 }}
         >
-          <div className="flex items-center justify-between text-white py-2 px-3 sm:px-6 bg-black/90 border-b border-white/10 shrink-0 z-50">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xs sm:text-sm text-amber-300 flex items-center gap-1.5">
-                <Orbit size={15} className="text-amber-400" />
-                OBSERVASI BIOMEKANIKA
-              </span>
-              <span className="hidden sm:inline text-xs text-slate-400 font-mono">
-                [#{attempt.attemptNumber} - {session.sessionCode}]
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-slate-400 hidden md:inline">
-                Mode: <b className="text-amber-300 uppercase">{interactionMode === '3d-orbit' ? 'Putar 3D' : 'Pan & Zoom'}</b>
-              </span>
-              <button
-                type="button"
-                onClick={handleCloseFullscreen}
-                className="p-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-1 text-xs font-semibold"
-              >
-                <X size={15} />
-                <span>Tutup</span>
-              </button>
-            </div>
-          </div>
-
           <div className="min-h-0 flex-1 w-full relative overflow-hidden flex items-stretch justify-center bg-black p-0 m-0">
             {renderVideoPlayerBlock(true)}
           </div>

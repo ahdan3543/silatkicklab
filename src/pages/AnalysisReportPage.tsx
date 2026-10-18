@@ -28,202 +28,47 @@ const UpiLogo: React.FC<{ className?: string }> = ({ className = 'w-16 h-16' }) 
   />
 );
 
-// Komponen Grafik Cetak Terpadu (Tema Sport Light Academic)
+// Grafik laporan: 3 parameter kecepatan per percobaan, dibuat ringkas agar tetap muat di PDF.
 const UnifiedPerformanceChart: React.FC<{
   attempts: MergedAttemptResult[];
   speedUnit: string;
   distUnit: string;
-}> = ({ attempts, speedUnit, distUnit }) => {
-  const height = 160;
-  const width = 760;
-  const padding = { top: 25, right: 30, bottom: 35, left: 50 };
+}> = ({ attempts, speedUnit }) => {
+  const series = [
+    { key: 'phase', label: 'Start → Impact', short: 'Fase tendangan', color: '#800000', get: (a: MergedAttemptResult) => a?.averageSpeed },
+    { key: 'cycle', label: 'Siklus Penuh', short: 'Start → Recovery', color: '#0F766E', get: (a: MergedAttemptResult) => a?.fullCycleAverageSpeed },
+    { key: 'peak', label: 'Kecepatan Puncak', short: 'Nilai maksimum', color: '#D4A017', get: (a: MergedAttemptResult) => a?.peakSpeed },
+  ];
 
-  // Filter outlier agar skala grafik tetap proporsional
-  const normalSpeeds = (attempts || [])
-    .map((a) => a?.averageSpeed || 0)
-    .filter((v) => v > 0 && v < 35);
-  const benchmarkMaxSpeed = normalSpeeds.length > 0 ? Math.max(...normalSpeeds) : 15;
-  const maxSpeed = Math.max(16, Math.min(25, Math.ceil(benchmarkMaxSpeed * 1.25)));
-
-  const distances = (attempts || []).map((a) => a?.distanceToTargetCm || 0);
-  const maxDist = Math.max(...distances, 8) * 1.25;
-
-  const getSpeedY = (val: number) => {
-    const clamped = Math.min(val, maxSpeed);
-    return height - padding.bottom - (clamped / maxSpeed) * (height - padding.top - padding.bottom);
+  const MiniChart: React.FC<{ item: typeof series[number] }> = ({ item }) => {
+    const values = (attempts || []).map((a) => item.get(a) || 0).filter((v) => v > 0 && v < 35);
+    const maxVal = Math.max(5, Math.ceil((values.length ? Math.max(...values) : 5) * 1.2));
+    const width = 235, height = 105, left = 25, right = 8, top = 10, bottom = 22;
+    const plotW = width-left-right, plotH = height-top-bottom;
+    const getY = (v:number) => height-bottom-(Math.min(v,maxVal)/maxVal)*plotH;
+    const groupW = plotW / Math.max(attempts.length,1);
+    return <div className="border border-dark-border rounded-lg bg-white p-2">
+      <div className="flex items-start justify-between gap-1">
+        <div><div className="text-[9px] font-bold text-dark">{item.label}</div><div className="text-[7.5px] text-dark-secondary">{item.short}</div></div>
+        <span className="text-[7.5px] font-mono font-bold">{speedUnit}</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[100px] mt-1">
+        <line x1={left} y1={top} x2={width-right} y2={top} stroke="#E2E8F0" strokeDasharray="3 3" />
+        <line x1={left} y1={height-bottom} x2={width-right} y2={height-bottom} stroke="#CBD5E1" />
+        <text x={left-4} y={top+3} fill="#94A3B8" fontSize="6.5" textAnchor="end">{maxVal}</text>
+        <text x={left-4} y={height-bottom+3} fill="#94A3B8" fontSize="6.5" textAnchor="end">0</text>
+        {(attempts || []).map((att,idx)=>{ const value=item.get(att)||0; const x=left+idx*groupW+groupW/2-6; const y=getY(value); const h=Math.max(0,height-bottom-y); return <g key={att?.attemptId||idx}>{value>0&&<><rect x={x} y={y} width="12" height={h} rx="2" fill={item.color}/><text x={x+6} y={y-3} fill={item.color} fontSize="6.5" textAnchor="middle" fontWeight="bold">{value.toFixed(1)}</text></>}<text x={left+idx*groupW+groupW/2} y={height-7} fill="#64748B" fontSize="6.5" textAnchor="middle">P#{att?.attemptNumber||idx+1}</text></g>; })}
+      </svg>
+    </div>;
   };
 
-  const getDistY = (val: number) =>
-    height - padding.bottom - (val / maxDist) * (height - padding.top - padding.bottom);
-
-  return (
-    <div className="w-full bg-slate-50/70 border border-dark-border rounded-xl p-3.5 text-dark font-mono">
-      <div className="flex items-center justify-between text-xs pb-2 mb-2 border-b border-dark-border/60">
-        <span className="font-bold text-dark font-sans text-xs">
-          Grafik Evaluasi Performa 5 Percobaan
-        </span>
-        <div className="flex items-center gap-4 text-[11px] font-sans">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-[#800000] rounded-sm inline-block" /> Kecepatan Tendangan ({speedUnit})
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 bg-[#FACC15] border border-amber-400 rounded-sm inline-block" /> Simpangan Sasaran ({distUnit})
-          </span>
-        </div>
-      </div>
-
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-36 overflow-visible">
-        {/* Garis Grid Horizontal */}
-        <line
-          x1={padding.left}
-          y1={getSpeedY(maxSpeed)}
-          x2={width - padding.right}
-          y2={getSpeedY(maxSpeed)}
-          stroke="#E2E8F0"
-          strokeWidth="1"
-          strokeDasharray="3 3"
-        />
-        <text
-          x={padding.left - 8}
-          y={getSpeedY(maxSpeed) + 3}
-          fill="#94A3B8"
-          fontSize="8.5"
-          textAnchor="end"
-        >
-          {maxSpeed}
-        </text>
-
-        <line
-          x1={padding.left}
-          y1={getSpeedY(maxSpeed / 2)}
-          x2={width - padding.right}
-          y2={getSpeedY(maxSpeed / 2)}
-          stroke="#F1F5F9"
-          strokeWidth="1"
-        />
-        <text
-          x={padding.left - 8}
-          y={getSpeedY(maxSpeed / 2) + 3}
-          fill="#94A3B8"
-          fontSize="8.5"
-          textAnchor="end"
-        >
-          {(maxSpeed / 2).toFixed(0)}
-        </text>
-
-        <line
-          x1={padding.left}
-          y1={height - padding.bottom}
-          x2={width - padding.right}
-          y2={height - padding.bottom}
-          stroke="#CBD5E1"
-          strokeWidth="1.5"
-        />
-        <text
-          x={padding.left - 8}
-          y={height - padding.bottom + 3}
-          fill="#94A3B8"
-          fontSize="8.5"
-          textAnchor="end"
-        >
-          0
-        </text>
-
-        {(attempts || []).map((att, idx) => {
-          const totalGroups = attempts.length || 5;
-          const groupWidth = (width - padding.left - padding.right) / totalGroups;
-          const startX = padding.left + idx * groupWidth;
-
-          const barWidth = 20;
-          const speedX = startX + groupWidth / 2 - barWidth - 3;
-          const distX = startX + groupWidth / 2 + 3;
-
-          const spdVal = att?.averageSpeed || 0;
-          const isExtreme = spdVal > maxSpeed;
-          const sY = getSpeedY(spdVal);
-          const sHeight = Math.max(2, height - padding.bottom - sY);
-
-          const dVal = att?.distanceToTargetCm || 0;
-          const dY = getDistY(dVal);
-          const dHeight = Math.max(2, height - padding.bottom - dY);
-
-          return (
-            <g key={att?.attemptId || idx}>
-              {/* Batang Kecepatan Tendangan */}
-              <rect
-                x={speedX}
-                y={sY}
-                width={barWidth}
-                height={spdVal > 0 ? sHeight : 0}
-                rx="3"
-                fill={isExtreme ? '#DC2626' : '#800000'}
-              />
-              {att?.peakSpeed !== null && att?.peakSpeed !== undefined && (
-                <text
-                  x={speedX + barWidth / 2}
-                  y={sY - 4}
-                  fill={isExtreme ? '#DC2626' : '#800000'}
-                  fontSize="8.5"
-                  textAnchor="middle"
-                  fontWeight="bold"
-                >
-                  {isExtreme ? `! ${spdVal.toFixed(1)}` : spdVal.toFixed(1)}
-                </text>
-              )}
-
-              {/* Batang Simpangan Sasaran (Kuning Gold UPI) */}
-              <rect
-                x={distX}
-                y={dY}
-                width={barWidth}
-                height={dVal > 0 ? dHeight : 0}
-                rx="3"
-                fill="#FACC15"
-                stroke="#EAB308"
-                strokeWidth="1"
-              />
-              {att?.distanceToTargetCm !== null && att?.distanceToTargetCm !== undefined && (
-                <text
-                  x={distX + barWidth / 2}
-                  y={dY - 4}
-                  fill="#B45309"
-                  fontSize="8.5"
-                  textAnchor="middle"
-                  fontWeight="bold"
-                >
-                  {dVal.toFixed(1)}
-                </text>
-              )}
-
-              {/* Label Nomor Percobaan */}
-              <text
-                x={startX + groupWidth / 2}
-                y={height - 18}
-                fill="#475569"
-                fontSize="9.5"
-                textAnchor="middle"
-                fontWeight="bold"
-              >
-                P#{att?.attemptNumber || idx + 1}
-              </text>
-
-              {/* Status Akurasi */}
-              <text
-                x={startX + groupWidth / 2}
-                y={height - 6}
-                fill={att?.status === 'HIT' ? '#059669' : att?.status === 'MISS' ? '#DC2626' : '#94A3B8'}
-                fontSize="8"
-                textAnchor="middle"
-                fontWeight="bold"
-              >
-                {att?.status || '-'}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+  return <div className="w-full bg-slate-50/70 border border-dark-border rounded-xl p-2.5 text-dark font-mono">
+    <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-dark-border/60">
+      <div><span className="font-bold text-dark font-sans text-[10px]">Grafik 3 Parameter Kecepatan — 5 Percobaan</span><p className="text-[8px] text-dark-secondary font-sans mt-0.5">Fase Start–Impact, siklus penuh, dan kecepatan puncak</p></div>
+      <span className="font-mono font-bold text-primary bg-primary/5 border border-primary/10 px-1.5 py-0.5 rounded text-[7.5px] shrink-0">Satuan: {speedUnit}</span>
     </div>
-  );
+    <div className="grid grid-cols-3 gap-2">{series.map((item)=><MiniChart key={item.key} item={item}/>)}</div>
+  </div>;
 };
 
 export const AnalysisReportPage: React.FC = () => {
@@ -424,34 +269,35 @@ export const AnalysisReportPage: React.FC = () => {
           </div>
 
           <div className="p-2 border border-dark-border rounded-lg bg-slate-50">
-            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Peak Speed Sesi</span>
+            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Kecepatan Puncak Sesi</span>
             <span className="text-xl font-bold font-mono text-primary mt-0.5 block">
               {summary?.sessionPeakSpeed !== null && summary?.sessionPeakSpeed !== undefined
                 ? `${summary.sessionPeakSpeed.toFixed(2)}`
                 : '-'}
             </span>
-            <span className="text-[9.5px] text-dark-secondary font-mono">{speedUnit}</span>
+            <span className="text-[9.5px] text-dark-secondary font-mono">{speedUnit} • maksimum</span>
           </div>
 
           <div className="p-2 border border-dark-border rounded-lg bg-slate-50">
-            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Kecepatan Rata-Rata Sesi</span>
+            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Kecepatan Rata-rata Fase Tendangan</span>
             <span className="text-xl font-bold font-mono text-dark mt-0.5 block">
               {summary?.sessionAverageSpeed !== null && summary?.sessionAverageSpeed !== undefined
                 ? `${summary.sessionAverageSpeed.toFixed(2)}`
                 : '-'}
             </span>
-            <span className="text-[9.5px] text-dark-secondary font-mono">{speedUnit}</span>
+            <span className="text-[9px] text-dark-secondary font-mono">{speedUnit} • {summary?.sessionAverageDuration != null ? `${summary.sessionAverageDuration.toFixed(2)} s` : '--'} durasi</span>
           </div>
 
           <div className="p-2 border border-dark-border rounded-lg bg-slate-50">
-            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Waktu Tempuh Rata-Rata</span>
+            <span className="text-[9.5px] uppercase font-bold text-dark-secondary block">Kecepatan Rata-rata Siklus Penuh</span>
             <span className="text-xl font-bold font-mono text-dark mt-0.5 block">
-              {summary?.sessionAverageDuration !== null && summary?.sessionAverageDuration !== undefined
-                ? `${summary.sessionAverageDuration.toFixed(2)} s`
+              {summary?.sessionFullCycleAverageSpeed !== null && summary?.sessionFullCycleAverageSpeed !== undefined
+                ? `${summary.sessionFullCycleAverageSpeed.toFixed(2)}`
                 : '-'}
             </span>
-            <span className="text-[9.5px] text-dark-secondary">Start ke Impact</span>
+            <span className="text-[9px] text-dark-secondary font-mono">{speedUnit} • {summary?.attempts.filter(a => a.fullCycleDuration != null).length ? `${(summary.attempts.filter(a => a.fullCycleDuration != null).reduce((sum,a) => sum + (a.fullCycleDuration || 0), 0) / summary.attempts.filter(a => a.fullCycleDuration != null).length).toFixed(2)} s` : '--'} durasi</span>
           </div>
+
         </div>
 
         {/* 4. TABEL 5 PERCOBAAN */}
@@ -461,8 +307,9 @@ export const AnalysisReportPage: React.FC = () => {
               <thead className="bg-slate-100 font-bold uppercase text-[10px] text-dark">
                 <tr>
                   <th className="px-3 py-1.5">Percobaan</th>
-                  <th className="px-3 py-1.5">Durasi</th>
-                  <th className="px-3 py-1.5">Kecepatan Tendangan</th>
+                  <th className="px-3 py-1.5">Fase Start–Impact</th>
+                  <th className="px-3 py-1.5">Siklus Penuh</th>
+                  <th className="px-3 py-1.5">Puncak</th>
                   <th className="px-3 py-1.5">Simpangan Target</th>
                   <th className="px-3 py-1.5">Status</th>
                 </tr>
@@ -471,10 +318,9 @@ export const AnalysisReportPage: React.FC = () => {
                 {(summary?.attempts || []).map((att) => (
                   <tr key={att.attemptId} className="text-dark">
                     <td className="px-3 py-1.5 font-bold">Percobaan #{att.attemptNumber}</td>
-                    <td className="px-3 py-1.5">{att.kickDuration ? `${att.kickDuration.toFixed(2)} s` : '-'}</td>
-                    <td className="px-3 py-1.5">
-                      {att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${speedUnit}` : 'Kalibrasi diperlukan'}
-                    </td>
+                    <td className="px-3 py-1.5"><div>{att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${speedUnit}` : '-'}</div>{att.averageSpeed !== null && <div className="text-[8px] text-dark-secondary font-sans">{att.kickDuration != null ? `${att.kickDuration.toFixed(2)} s` : '--'}</div>}</td>
+                    <td className="px-3 py-1.5"><div>{att.fullCycleAverageSpeed !== null ? `${att.fullCycleAverageSpeed.toFixed(2)} ${speedUnit}` : '-'}</div>{att.fullCycleAverageSpeed !== null && <div className="text-[8px] text-dark-secondary font-sans">{att.fullCycleDuration != null ? `${att.fullCycleDuration.toFixed(2)} s` : '--'}</div>}</td>
+                    <td className="px-3 py-1.5 font-bold text-primary">{att.peakSpeed !== null ? `${att.peakSpeed.toFixed(2)} ${speedUnit}` : '-'}</td>
                     <td className="px-3 py-1.5">
                       {att.distanceToTargetCm !== null
                         ? `${att.distanceToTargetCm.toFixed(1)} ${distUnit}`

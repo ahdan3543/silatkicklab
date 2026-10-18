@@ -12,6 +12,8 @@ export interface MergedAttemptResult {
   kickDuration: number | null;
   peakSpeed: number | null;
   averageSpeed: number | null;
+  fullCycleAverageSpeed: number | null;
+  fullCycleDuration: number | null;
   speedUnit: 'm/s' | 'px/s';
   distanceToTargetCm: number | null;
   status: 'HIT' | 'MISS' | 'INVALID' | 'BELUM_DIANALISIS';
@@ -33,6 +35,7 @@ export interface SessionAggregatedSummary {
 
   sessionPeakSpeed: number | null;
   sessionAverageSpeed: number | null;
+  sessionFullCycleAverageSpeed: number | null;
   sessionAverageDuration: number | null;
   sessionAverageDistanceCm: number | null;
 
@@ -96,6 +99,8 @@ export const sessionSummaryEngine = {
       // frame awal → frame kontak: jarak perpindahan / waktu tempuh.
       let peakSpeed: number | null = null;
       let avgSpeed: number | null = null;
+      let fullCycleAverageSpeed: number | null = null;
+      let fullCycleDuration: number | null = null;
       if (spd) {
         peakSpeed =
           typeof spd.peakSpeedMetersPerSecond === 'number'
@@ -105,6 +110,40 @@ export const sessionSummaryEngine = {
           typeof spd.averageSpeedMetersPerSecond === 'number'
             ? spd.averageSpeedMetersPerSecond
             : null;
+
+        // Kecepatan rata-rata siklus penuh = total panjang lintasan kaki
+        // selama start -> recovery dibagi durasi siklus penuh.
+        // Berbeda dari Start -> Impact, metrik ini tidak memakai net displacement
+        // (yang akan kembali mendekati nol karena kaki kembali ke posisi awal).
+        const trajectory = Array.isArray(spd.trajectory) ? spd.trajectory : [];
+        const startFrame = spd.kickStartFrame;
+        const recoveryFrame = spd.recoveryFrame;
+        const cyclePoints = trajectory
+          .filter((point) => point.frameNumber >= startFrame && point.frameNumber <= recoveryFrame)
+          .sort((a, b) => a.frameNumber - b.frameNumber);
+
+        if (recoveryFrame > startFrame && cyclePoints.length >= 2) {
+          let pathPixels = 0;
+          for (let i = 1; i < cyclePoints.length; i += 1) {
+            const dx = cyclePoints[i].rawX - cyclePoints[i - 1].rawX;
+            const dy = cyclePoints[i].rawY - cyclePoints[i - 1].rawY;
+            pathPixels += Math.hypot(dx, dy);
+          }
+
+          const duration =
+            typeof spd.recoveryTimestamp === 'number' && typeof spd.kickStartTimestamp === 'number'
+              ? Math.max(0, spd.recoveryTimestamp - spd.kickStartTimestamp)
+              : (recoveryFrame - startFrame) / (spd.fps || 60);
+
+          if (duration > 0 && pathPixels > 0) {
+            fullCycleDuration = duration;
+            if (isCalibrated && typeof spd.metersPerPixel === 'number') {
+              fullCycleAverageSpeed = (pathPixels * spd.metersPerPixel) / duration;
+            } else {
+              fullCycleAverageSpeed = pathPixels / duration;
+            }
+          }
+        }
       }
 
       const isManual = Boolean(
@@ -122,6 +161,8 @@ export const sessionSummaryEngine = {
         kickDuration: spd?.kickDuration || null,
         peakSpeed,
         averageSpeed: avgSpeed,
+        fullCycleAverageSpeed,
+        fullCycleDuration,
         speedUnit: isCalibrated ? 'm/s' : 'px/s',
         distanceToTargetCm: acc?.distanceCentimeters || null,
         status,
@@ -153,6 +194,10 @@ export const sessionSummaryEngine = {
       .map((m) => m.averageSpeed)
       .filter((v): v is number => typeof v === 'number');
 
+    const fullCycleSpeeds = validAttemptsList
+      .map((m) => m.fullCycleAverageSpeed)
+      .filter((v): v is number => typeof v === 'number');
+
     const durations = validAttemptsList
       .map((m) => m.kickDuration)
       .filter((v): v is number => typeof v === 'number');
@@ -167,6 +212,11 @@ export const sessionSummaryEngine = {
 
     const sessionAverageSpeed =
       avgSpeeds.length > 0 ? avgSpeeds.reduce((a, b) => a + b, 0) / avgSpeeds.length : null;
+
+    const sessionFullCycleAverageSpeed =
+      fullCycleSpeeds.length > 0
+        ? fullCycleSpeeds.reduce((a, b) => a + b, 0) / fullCycleSpeeds.length
+        : null;
 
     const sessionAverageDuration =
       durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
@@ -189,6 +239,7 @@ export const sessionSummaryEngine = {
       speedUnit,
       sessionPeakSpeed,
       sessionAverageSpeed,
+      sessionFullCycleAverageSpeed,
       sessionAverageDuration,
       sessionAverageDistanceCm,
       minPeakSpeed,

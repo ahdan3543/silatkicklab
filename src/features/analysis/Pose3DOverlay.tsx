@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { RotateCw, ZoomIn, ZoomOut, RefreshCcw } from 'lucide-react';
 import { HumanMannequin3D, Landmark3D } from './HumanMannequin3D';
 import { TargetDefinition } from '../../types/accuracy';
 
@@ -585,54 +584,6 @@ export const Pose3DOverlay: React.FC<Pose3DOverlayProps> = ({
         className="w-full h-full absolute inset-0 pointer-events-auto cursor-grab active:cursor-grabbing"
       />
 
-      {/* Floating Toolbar Kontrol Rotasi & Zoom */}
-      <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-white/15 px-2.5 py-1.5 rounded-xl shadow-lg pointer-events-auto z-20">
-        <span className="text-[10px] font-bold text-slate-400 mr-1 uppercase tracking-wider font-mono">
-          Putar 3D
-        </span>
-        <button
-          type="button"
-          onClick={() => setRotationY((prev) => prev - 0.3)}
-          title="Putar Kiri"
-          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <RotateCw size={13} className="-scale-x-100" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setRotationY((prev) => prev + 0.3)}
-          title="Putar Kanan"
-          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <RotateCw size={13} />
-        </button>
-        <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
-        <button
-          type="button"
-          onClick={() => onZoomChange?.(Math.min(4, zoomLevel + 0.25))}
-          title="Zoom In"
-          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <ZoomIn size={13} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onZoomChange?.(Math.max(0.5, zoomLevel - 0.25))}
-          title="Zoom Out"
-          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <ZoomOut size={13} />
-        </button>
-        <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
-        <button
-          type="button"
-          onClick={handleResetView}
-          title="Reset Sudut Pandang"
-          className="p-1.5 rounded-lg text-slate-300 hover:text-amber-400 hover:bg-white/10 transition-colors"
-        >
-          <RefreshCcw size={13} />
-        </button>
-      </div>
     </div>
   );
 };

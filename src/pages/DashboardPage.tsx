@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Activity, FileText, Settings2, ArrowRight, PlayCircle, Upload, MousePointer2, BarChart3, CheckCircle2, Ruler, Timer, Target, Gauge, GitCompare } from 'lucide-react';
+import { Users, Activity, FileText, Settings2, ArrowRight, PlayCircle, Upload, MousePointer2, BarChart3, CheckCircle2, Ruler, Timer, Target, Gauge, GitCompare, ChevronDown } from 'lucide-react';
 import { Athlete, AnalysisSession } from '../types';
 import { athleteService } from '../services/athleteService';
 import { sessionService } from '../services/sessionService';
@@ -23,7 +23,7 @@ export const DashboardPage: React.FC = () => {
       <section className="dashboard-hero relative overflow-hidden rounded-[24px] min-h-[230px] sm:min-h-[255px]">
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,.98)_0%,rgba(255,255,255,.9)_36%,rgba(255,239,242,.52)_62%,rgba(255,225,230,.18)_100%)]" />
         <div className="relative z-10 p-7 sm:p-9 lg:p-10 max-w-[650px]">
-          <h1 className="text-[34px] sm:text-[43px] font-extrabold leading-none tracking-[-.045em] text-slate-900">Selamat pagi,<br/><span className="text-[#a40000]">Ahdan!</span> 👋</h1>
+          <h1 className="text-[34px] sm:text-[43px] font-extrabold leading-none tracking-[-.045em] text-slate-900">Selamat datang,<br/><span className="text-[#a40000]">Ahdan!</span> 👋</h1>
           <p className="mt-4 max-w-[500px] text-[13px] sm:text-[15px] leading-relaxed text-slate-600">Lanjutkan penelitian dan analisis tendangan depan atlet pencak silat.</p>
           <button onClick={() => navigate('/analisis')} className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#a40000] px-6 py-3 text-[12px] font-extrabold text-white shadow-lg shadow-red-900/15 hover:bg-[#800000]"><PlayCircle size={16}/> Mulai Analisis <ArrowRight size={15}/></button>
         </div>
@@ -67,34 +67,11 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="system-steps">
-              <SystemStep number="01" title="Video Samping" icon={<Upload size={20}/>} desc="5 percobaan direkam dari sisi samping dengan posisi kamera, jarak, dan bidang gerak yang dibuat konsisten." tag="INPUT VIDEO" tone="red" />
-              <SystemStep number="02" title="Kalibrasi Jarak" icon={<Ruler size={20}/>} desc="Marker dengan ukuran nyata menjadi patokan agar jarak pada video dapat dikonversi dari piksel menjadi meter." tag="PIXEL → METER" tone="amber" />
-              <SystemStep number="03" title="Tentukan Waktu" icon={<Timer size={20}/>} desc="Tandai frame saat kaki mulai bergerak dan frame saat kontak dengan sasaran untuk mendapatkan waktu tempuh." tag="Δ FRAME ÷ FPS" tone="purple" />
-              <SystemStep number="04" title="Hitung Kecepatan" icon={<Gauge size={20}/>} desc="Jarak gerak kaki dibagi waktu tempuh menghasilkan kecepatan tendangan dalam satuan meter per detik." tag="JARAK ÷ WAKTU = m/s" tone="green" />
-              <SystemStep number="05" title="Ukur Akurasi" icon={<Target size={20}/>} desc="Posisi titik impak dibandingkan dengan area target untuk menentukan HIT atau MISS pada setiap percobaan." tag="HIT ÷ VALID × 100%" tone="rose" />
-            </div>
-
-            <div className="system-results mt-5">
-              <div className="system-result-card">
-                <div className="system-result-icon"><Timer size={18}/></div>
-                <div><b>Waktu tempuh</b><strong>(Frame kontak − Frame awal) ÷ FPS</strong><small>Menentukan berapa detik kaki bergerak sampai mengenai sasaran.</small></div>
-              </div>
-              <div className="system-result-card">
-                <div className="system-result-icon"><Gauge size={18}/></div>
-                <div><b>Kecepatan tendangan</b><strong>Jarak ÷ waktu = m/s</strong><small>Jarak diperoleh setelah skala piksel dikalibrasi ke ukuran nyata.</small></div>
-              </div>
-              <div className="system-result-card">
-                <div className="system-result-icon"><Target size={18}/></div>
-                <div><b>Akurasi sasaran</b><strong>HIT ÷ percobaan valid × 100%</strong><small>Semakin banyak tendangan tepat sasaran, semakin tinggi persentase akurasi.</small></div>
-              </div>
-            </div>
-
-            <div className="system-output mt-5">
-              <div className="system-output-mark"><CheckCircle2 size={20}/></div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2"><b>Hasil akhir penelitian</b><span>5 percobaan → komparasi → laporan</span></div>
-                <p>Seluruh hasil dirangkum menjadi rata-rata, grafik performa, status HIT/MISS, perbandingan percobaan, dan laporan PDF yang siap digunakan.</p>
-              </div>
+              <SystemStep number="01" title="Video Samping" icon={<Upload size={20}/>} desc="5 percobaan direkam dari sisi samping dengan posisi kamera, jarak, dan bidang gerak yang dibuat konsisten." tag="INPUT VIDEO" tone="red" detail="Video adalah bahan mentah penelitian. Bayangkan seperti merekam pertandingan dari satu titik kamera: posisi kamera harus tetap supaya gerakan pada percobaan pertama dan kelima bisa dibandingkan secara adil. Dari video inilah sistem mengambil frame, posisi kaki, titik sasaran, dan data gerak yang diperlukan." analogy="Analogi: seperti mengukur lari dengan kamera di garis start—kalau posisi kameranya berubah-ubah, hasil pengukuran ikut berubah." />
+              <SystemStep number="02" title="Kalibrasi Jarak" icon={<Ruler size={20}/>} desc="Marker dengan ukuran nyata menjadi patokan agar jarak pada video dapat dikonversi dari piksel menjadi meter." tag="PIXEL → METER" tone="amber" detail="Sistem terlebih dahulu mengetahui ukuran nyata sebuah marker. Perbandingan ukuran marker di dunia nyata dengan ukurannya di video digunakan untuk membuat skala piksel ke meter. Setelah skala terbentuk, perpindahan kaki yang terlihat di video dapat dihitung dalam satuan jarak nyata." analogy="Analogi: seperti melihat penggaris di foto. Walaupun foto hanya berisi piksel, penggaris memberi tahu bahwa sekian piksel sebenarnya mewakili, misalnya, 1 meter." />
+              <SystemStep number="03" title="Tentukan Waktu" icon={<Timer size={20}/>} desc="Tandai frame saat kaki mulai bergerak dan frame saat kontak dengan sasaran untuk mendapatkan waktu tempuh." tag="Δ FRAME ÷ FPS" tone="purple" detail="Waktu tempuh dihitung dari selisih frame antara awal gerakan dan saat kaki mengenai sasaran, kemudian dibagi dengan FPS video. Rumusnya: (frame kontak − frame awal) ÷ FPS. Semakin kecil waktunya untuk jarak yang sama, semakin cepat gerakannya." analogy="Analogi: seperti stopwatch digital, hanya saja sistem menggunakan nomor frame sebagai 'detak waktu' yang sangat presisi." />
+              <SystemStep number="04" title="Hitung Kecepatan" icon={<Gauge size={20}/>} desc="Jarak gerak kaki dibagi waktu tempuh menghasilkan kecepatan tendangan dalam satuan meter per detik." tag="JARAK ÷ WAKTU = m/s" tone="green" detail="Setelah jarak sudah dikonversi ke meter dan waktu tempuh sudah diketahui, kecepatan dihitung dengan rumus v = jarak ÷ waktu. Contohnya, jika kaki berpindah 1,2 meter dalam 0,12 detik, kecepatannya 10 m/s. Nilai ini membantu membandingkan performa antarpercobaan secara kuantitatif." analogy="Analogi: dua atlet menempuh jarak yang sama; atlet yang menyelesaikannya dalam waktu lebih singkat memiliki kecepatan lebih tinggi." />
+              <SystemStep number="05" title="Ukur Akurasi" icon={<Target size={20}/>} desc="Posisi titik impak dibandingkan dengan area target untuk menentukan HIT atau MISS pada setiap percobaan." tag="HIT ÷ VALID × 100%" tone="rose" detail="Setiap titik impak diperiksa terhadap area target. Percobaan yang titik impaknya berada di area yang ditentukan dihitung sebagai HIT, sedangkan yang berada di luar area dihitung sebagai MISS. Akurasi kemudian diringkas dengan rumus HIT ÷ percobaan valid × 100%." analogy="Analogi: seperti papan target panahan—bukan hanya seberapa cepat anak panah melaju, tetapi apakah anak panah benar-benar mengenai area yang dituju." />
             </div>
           </section>
         </div>
@@ -107,7 +84,7 @@ const Quick = ({title, desc, icon, tone, onClick}:{title:string;desc:string;icon
   const tones:any = {pink:'bg-rose-50 text-[#c00000] border-rose-100', red:'bg-red-100 text-[#c00000] border-red-100', green:'bg-emerald-50 text-emerald-600 border-emerald-100', purple:'bg-violet-50 text-violet-600 border-violet-100'};
   return <button onClick={onClick} className={`quick-card bg-gradient-to-br ${tone==='pink'?'from-rose-50 to-pink-100/70':tone==='red'?'from-red-50 to-rose-100/80':tone==='green'?'from-emerald-50 to-green-100/70':'from-violet-50 to-indigo-100/70'} border ${tones[tone].split(' ').pop()} text-left`}><span className={`quick-icon ${tones[tone]}`}>{icon}</span><span className="min-w-0"><b>{title}</b><small>{desc}</small></span><ArrowRight size={15} className="ml-auto text-slate-300 shrink-0"/></button>
 }
-const SystemStep = ({number,title,desc,icon,tag,tone}:{number:string;title:string;desc:string;icon:React.ReactNode;tag:string;tone:string}) => {
+const SystemStep = ({number,title,desc,icon,tag,tone,detail,analogy}:{number:string;title:string;desc:string;icon:React.ReactNode;tag:string;tone:string;detail:string;analogy:string}) => {
   const tones:any = {
     red:'bg-red-50 text-[#a40000] border-red-100',
     amber:'bg-amber-50 text-amber-600 border-amber-100',
@@ -115,18 +92,45 @@ const SystemStep = ({number,title,desc,icon,tag,tone}:{number:string;title:strin
     green:'bg-emerald-50 text-emerald-600 border-emerald-100',
     rose:'bg-rose-50 text-rose-600 border-rose-100'
   };
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="system-step group">
+    <button
+      type="button"
+      onClick={() => setOpen(value => !value)}
+      className={`system-step group text-left w-full cursor-pointer transition-all duration-200 ${open ? 'ring-1 ring-[#a40000]/15 shadow-md' : 'hover:shadow-sm'}`}
+      aria-expanded={open}
+    >
       <div className="flex items-center justify-between gap-3">
         <span className={`system-step-icon ${tones[tone]}`}>{icon}</span>
-        <span className="system-step-number">{number}</span>
+        <div className="flex items-center gap-2">
+          <span className="system-step-number">{number}</span>
+          <span className={`flex h-7 w-7 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>
+            <ChevronDown size={15}/>
+          </span>
+        </div>
       </div>
       <div className="mt-4">
         <b className="system-step-title">{title}</b>
         <p className="system-step-desc">{desc}</p>
       </div>
-      <span className="system-step-tag">{tag}</span>
-    </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="system-step-tag">{tag}</span>
+        <span className="text-[9px] font-bold text-slate-400">{open ? 'Tutup penjelasan' : 'Klik untuk penjelasan'}</span>
+      </div>
+      {open && (
+        <div className="mt-4 border-t border-slate-100 pt-4 space-y-3">
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-[.12em] text-[#a40000]">Penjelasan</span>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{detail}</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+            <span className="text-[9px] font-black uppercase tracking-[.12em] text-slate-500">Gambaran sederhana</span>
+            <p className="mt-1 text-[10px] leading-relaxed text-slate-500">{analogy}</p>
+          </div>
+        </div>
+      )}
+    </button>
   );
 };
 

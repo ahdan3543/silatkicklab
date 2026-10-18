@@ -18,7 +18,6 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Table } from '../components/ui/Table';
 import { LoadingState } from '../components/ui/LoadingState';
-import { AccuracyDistanceChart } from '../features/analysis/AccuracyDistanceChart';
 import { ValidationPanel } from '../features/analysis/ValidationPanel';
 import { AnalysisSession, Athlete } from '../types';
 import { PoseAnalysisResult } from '../types/pose';
@@ -37,198 +36,127 @@ import {
   MergedAttemptResult,
 } from '../services/result/sessionSummaryEngine';
 
-// Komponen Grafik Kecepatan Murni Performa (Tanpa Garis Batas Acuan)
-const ModernSpeedComparisonChart: React.FC<{
+// Grafik hasil utama: 4 grafik besar yang tetap terbaca di desktop maupun HP.
+const ResultCharts: React.FC<{
   attempts: MergedAttemptResult[];
   speedUnit: string;
 }> = ({ attempts, speedUnit }) => {
-  const height = 180;
-  const width = 500;
-  const padding = { top: 30, right: 25, bottom: 35, left: 45 };
+  const chartW = 640;
+  const chartH = 300;
+  const pad = { top: 34, right: 44, bottom: 46, left: 54 };
+  const plotW = chartW - pad.left - pad.right;
+  const plotH = chartH - pad.top - pad.bottom;
+  const valid = (v: number | null | undefined) => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
-  // Filter outlier frame glitch
-  const normalSpeeds = attempts
-    .map((a) => a.peakSpeed || 0)
-    .filter((v) => v > 0 && v < 35);
+  const BarChart: React.FC<{
+    title: string;
+    subtitle: string;
+    unit: string;
+    values: number[];
+    secondaryValues: number[];
+    labels: string[];
+    barColor: string;
+    secondaryColor: string;
+    secondaryUnit: string;
+    valueFormatter?: (v: number) => string;
+    secondaryFormatter?: (v: number) => string;
+    showSecondary?: boolean;
+  }> = ({ title, subtitle, unit, values, secondaryValues, labels, barColor, secondaryColor, secondaryUnit, valueFormatter = (v) => v.toFixed(2), secondaryFormatter = (v) => v.toFixed(2), showSecondary = true }) => {
+    const primary = values.filter(valid);
+    const secondary = showSecondary ? secondaryValues.filter(valid) : [];
+    const maxPrimary = Math.max(1, ...(primary.length ? primary : [1])) * 1.18;
+    const minTime = secondary.length ? Math.min(...secondary) : 0;
+    const maxTime = secondary.length ? Math.max(...secondary) : 1;
+    const timeRange = Math.max(maxTime - minTime, 0.001);
+    const xStep = plotW / Math.max(values.length, 1);
+    const primaryY = (v:number) => pad.top + plotH - (v/maxPrimary)*plotH;
+    // Waktu sengaja memakai skala visual terbalik: waktu lebih kecil = bar lebih tinggi.
+    const timeScore = (v:number) => secondary.length === 1 ? 1 : (maxTime-v)/timeRange;
+    const timeY = (v:number) => pad.top + plotH - timeScore(v)*plotH;
 
-  const benchmarkMax = normalSpeeds.length > 0 ? Math.max(...normalSpeeds) : 15;
-  const maxVal = Math.max(16, Math.min(25, Math.ceil(benchmarkMax * 1.2)));
-
-  const getY = (val: number) => {
-    const clampedVal = Math.min(val, maxVal);
     return (
-      height -
-      padding.bottom -
-      (clampedVal / maxVal) * (height - padding.top - padding.bottom)
+      <div className="result-big-chart">
+        <div className="result-chart-heading">
+          <div><h3>{title}</h3><p>{subtitle}</p></div>
+          <span>{unit}</span>
+        </div>
+        <svg viewBox={`0 0 ${chartW} ${chartH}`} className="result-chart-svg" role="img" aria-label={title}>
+          {[0,.25,.5,.75,1].map(t => { const y=pad.top+plotH-t*plotH; return <line key={t} x1={pad.left} y1={y} x2={chartW-pad.right} y2={y} stroke="#E2E8F0" strokeDasharray="4 4"/>; })}
+          <line x1={pad.left} y1={pad.top+plotH} x2={chartW-pad.right} y2={pad.top+plotH} stroke="#CBD5E1" strokeWidth="1.5"/>
+          <text x={pad.left-9} y={pad.top+4} fill={barColor} fontSize="10" textAnchor="end">{maxPrimary.toFixed(1)}</text>
+          <text x={chartW-pad.right+8} y={pad.top+4} fill={secondaryColor} fontSize="10">{secondary.length ? secondaryFormatter(minTime) : '--'}</text>
+          <text x={chartW-pad.right+8} y={pad.top+plotH+4} fill={secondaryColor} fontSize="10">{secondary.length ? secondaryFormatter(maxTime) : '--'}</text>
+          {showSecondary && <text x={chartW-pad.right} y={pad.top-10} fill={secondaryColor} fontSize="11" textAnchor="end" fontWeight="700">Waktu lebih cepat ↑</text>}
+          {values.map((v,i)=>{
+            const cx=pad.left+i*xStep+xStep/2;
+            const primaryW=Math.min(42,xStep*.26);
+            const secondaryW=Math.min(42,xStep*.26);
+            const pv=valid(v); const tv=valid(secondaryValues[i]);
+            const py=pv?primaryY(v):pad.top+plotH;
+            const ty=tv?timeY(secondaryValues[i]):pad.top+plotH;
+            return <g key={labels[i] || i}>
+              {pv && <rect x={cx-primaryW-4} y={py} width={primaryW} height={pad.top+plotH-py} rx="5" fill={barColor}/>} 
+              {showSecondary && tv && <rect x={cx+4} y={ty} width={secondaryW} height={pad.top+plotH-ty} rx="5" fill={secondaryColor}/>} 
+              <text x={cx-primaryW/2-4} y={pv?py-8:pad.top+plotH-8} fill={barColor} fontSize="12" textAnchor="middle" fontWeight="800">{pv?valueFormatter(v):'--'}</text>
+              <text x={cx+secondaryW/2+4} y={tv?ty-8:pad.top+plotH-8} fill={secondaryColor} fontSize="12" textAnchor="middle" fontWeight="800">{showSecondary && tv?secondaryFormatter(secondaryValues[i]):''}</text>
+              <text x={cx} y={chartH-24} fill="#334155" fontSize="12" textAnchor="middle" fontWeight="700">{labels[i]}</text>
+            </g>;
+          })}
+        </svg>
+        <div className="result-chart-legend"><span><i className="legend-maroon"/> Kecepatan ({speedUnit})</span>{showSecondary && <span><i className="legend-blue"/> Waktu ({secondaryUnit})</span>}</div>
+      </div>
     );
   };
 
-  return (
-    <div className="w-full bg-white border border-dark-border rounded-2xl shadow-xs p-5 flex flex-col justify-between h-full">
-      <div className="flex items-center justify-between pb-3 mb-2 border-b border-dark-border/60">
-        <div>
-          <h3 className="font-bold text-dark text-sm">
-            Distribusi Kecepatan per Percobaan
-          </h3>
-          <p className="text-xs text-dark-secondary mt-0.5">
-            Pengukuran kecepatan puncak dan rata-rata ekstensi tendangan
-          </p>
-        </div>
-        <span className="font-mono font-bold text-[#800000] bg-[#800000]/10 border border-[#800000]/20 px-2.5 py-1 rounded-lg text-xs">
-          Satuan: {speedUnit}
-        </span>
+  const ComboChart: React.FC = () => {
+    const speedValues = attempts.map(a => a.peakSpeed || 0);
+    const accValues = attempts.map(a => {
+      const r = a.accuracyResult;
+      if (!r) return 0;
+      return typeof r.score === 'number' ? r.score : r.finalResult === 'hit' ? 100 : 0;
+    });
+    const maxSpeed = Math.max(1, ...speedValues) * 1.18;
+    const barW = 34;
+    const groupW = plotW / Math.max(attempts.length,1);
+    const speedY = (v:number) => pad.top + plotH - (v/maxSpeed)*plotH;
+    const accY = (v:number) => pad.top + plotH - (v/100)*plotH;
+    return <div className="result-big-chart">
+      <div className="result-chart-heading">
+        <div><h3>Kecepatan Puncak & Akurasi</h3><p>Kecepatan maksimum dibandingkan ketepatan terhadap target</p></div>
+        <span>{speedUnit} · %</span>
       </div>
+      <svg viewBox={`0 0 ${chartW} ${chartH}`} className="result-chart-svg" role="img" aria-label="Kecepatan puncak dan akurasi">
+        {[0,.25,.5,.75,1].map(t => { const y=pad.top+plotH-t*plotH; return <line key={t} x1={pad.left} y1={y} x2={chartW-pad.right} y2={y} stroke="#E2E8F0" strokeDasharray="4 4"/>; })}
+        <line x1={pad.left} y1={pad.top+plotH} x2={chartW-pad.right} y2={pad.top+plotH} stroke="#CBD5E1" strokeWidth="1.5"/>
+        {[0,.25,.5,.75,1].map(t => <text key={`l${t}`} x={pad.left-9} y={pad.top+plotH-t*plotH+4} fill="#800000" fontSize="10" textAnchor="end">{(maxSpeed*t).toFixed(1)}</text>)}
+        {[0,25,50,75,100].map(v => <text key={`r${v}`} x={chartW-pad.right+9} y={pad.top+plotH-(v/100)*plotH+4} fill="#059669" fontSize="10">{v}%</text>)}
+        {attempts.map((a,i)=>{
+          const cx=pad.left+i*groupW+groupW/2;
+          const sv=a.peakSpeed||0; const av=accValues[i];
+          const sy=speedY(sv); const ay=accY(av);
+          return <g key={a.attemptId}>
+            {sv>0 && <rect x={cx-barW-4} y={sy} width={barW} height={pad.top+plotH-sy} rx="5" fill="#800000"/>}
+            {a.accuracyResult && <rect x={cx+4} y={ay} width={barW} height={pad.top+plotH-ay} rx="5" fill="#10B981"/>}
+            <text x={cx-barW/2-4} y={sy-7} fill="#800000" fontSize="12" textAnchor="middle" fontWeight="800">{sv>0?sv.toFixed(1):'--'}</text>
+            {a.accuracyResult && <text x={cx+barW/2+4} y={ay-7} fill="#059669" fontSize="12" textAnchor="middle" fontWeight="800">{av.toFixed(0)}%</text>}
+            <text x={cx} y={chartH-24} fill="#334155" fontSize="12" textAnchor="middle" fontWeight="700">P#{a.attemptNumber}</text>
+          </g>
+        })}
+      </svg>
+      <div className="result-chart-legend"><span><i className="legend-maroon"/> Kecepatan Puncak ({speedUnit})</span><span><i className="legend-green"/> Akurasi (%)</span></div>
+    </div>;
+  };
 
-      <div className="w-full aspect-[16/9] max-h-[220px] relative my-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-          {/* Garis Grid Horizontal Atas */}
-          <line
-            x1={padding.left}
-            y1={getY(maxVal)}
-            x2={width - padding.right}
-            y2={getY(maxVal)}
-            stroke="#E2E8F0"
-            strokeWidth="1"
-            strokeDasharray="3 3"
-          />
-          <text
-            x={padding.left - 8}
-            y={getY(maxVal) + 3}
-            fill="#94A3B8"
-            fontSize="9"
-            textAnchor="end"
-            fontFamily="monospace"
-          >
-            {maxVal}
-          </text>
-
-          {/* Garis Grid Tengah */}
-          <line
-            x1={padding.left}
-            y1={getY(maxVal / 2)}
-            x2={width - padding.right}
-            y2={getY(maxVal / 2)}
-            stroke="#F1F5F9"
-            strokeWidth="1"
-          />
-          <text
-            x={padding.left - 8}
-            y={getY(maxVal / 2) + 3}
-            fill="#94A3B8"
-            fontSize="9"
-            textAnchor="end"
-            fontFamily="monospace"
-          >
-            {(maxVal / 2).toFixed(0)}
-          </text>
-
-          {/* Sumbu X Bawah */}
-          <line
-            x1={padding.left}
-            y1={height - padding.bottom}
-            x2={width - padding.right}
-            y2={height - padding.bottom}
-            stroke="#CBD5E1"
-            strokeWidth="1.5"
-          />
-          <text
-            x={padding.left - 8}
-            y={height - padding.bottom + 3}
-            fill="#94A3B8"
-            fontSize="9"
-            textAnchor="end"
-            fontFamily="monospace"
-          >
-            0
-          </text>
-
-          {/* Render Batang Percobaan */}
-          {attempts.map((att, idx) => {
-            const totalGroups = attempts.length || 5;
-            const groupWidth = (width - padding.left - padding.right) / totalGroups;
-            const startX = padding.left + idx * groupWidth;
-
-            const barWidth = 16;
-            const peakX = startX + groupWidth / 2 - barWidth - 2;
-            const avgX = startX + groupWidth / 2 + 2;
-
-            const peakVal = att.averageSpeed || 0;
-            const isExtreme = peakVal > maxVal;
-            const pY = getY(peakVal);
-            const pHeight = Math.max(3, height - padding.bottom - pY);
-
-            const avgVal = att.averageSpeed || 0;
-            const aY = getY(avgVal);
-            const aHeight = Math.max(3, height - padding.bottom - aY);
-
-            return (
-              <g key={att.attemptId || idx}>
-                {/* Batang Kecepatan Tendangan (jarak / waktu) */}
-                <rect
-                  x={peakX}
-                  y={pY}
-                  width={barWidth}
-                  height={peakVal > 0 ? pHeight : 0}
-                  rx="3"
-                  fill={isExtreme ? '#DC2626' : '#800000'}
-                  className="transition-all hover:opacity-90"
-                />
-
-                {/* Batang Kecepatan Tendangan (Gold) */}
-                <rect
-                  x={avgX}
-                  y={aY}
-                  width={barWidth}
-                  height={avgVal > 0 ? aHeight : 0}
-                  rx="3"
-                  fill="#FACC15"
-                  className="transition-all hover:opacity-90"
-                />
-
-                {/* Label Kecepatan Tendangan */}
-                {att.peakSpeed !== null && att.peakSpeed !== undefined && (
-                  <text
-                    x={peakX + barWidth / 2}
-                    y={pY - 4}
-                    fill={isExtreme ? '#DC2626' : '#800000'}
-                    fontSize={isExtreme ? '8' : '8.5'}
-                    textAnchor="middle"
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    {isExtreme ? `! ${att.peakSpeed.toFixed(1)}` : att.peakSpeed.toFixed(1)}
-                  </text>
-                )}
-
-                {/* Label P# Percobaan */}
-                <text
-                  x={startX + groupWidth / 2}
-                  y={height - 18}
-                  fill="#64748B"
-                  fontSize="9.5"
-                  textAnchor="middle"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                >
-                  P#{att.attemptNumber || idx + 1}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* Legend Bawah */}
-      <div className="flex items-center justify-center gap-6 text-xs font-medium text-dark-secondary pt-3 border-t border-dark-border/60">
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-[#800000] inline-block" /> Kecepatan Tendangan (m/s)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-[#FACC15] inline-block" /> Kecepatan Rata-Rata
-        </span>
-      </div>
+  return <section className="result-charts-section">
+    <div className="result-charts-title"><div><h2>Grafik Hasil Utama</h2><p>Perbandingan kecepatan, waktu, puncak, dan akurasi pada 5 percobaan</p></div><span>HASIL UTAMA</span></div>
+    <div className="result-charts-grid">
+      <BarChart title="Kecepatan Fase & Waktu" subtitle="Start → Impact · kecepatan rata-rata + durasi fase" unit={`${speedUnit} · s`} values={attempts.map(a=>a.averageSpeed||0)} secondaryValues={attempts.map(a=>a.kickDuration||0)} labels={attempts.map(a=>`P#${a.attemptNumber}`)} barColor="#800000" secondaryColor="#2563EB" secondaryUnit="s" valueFormatter={v=>v.toFixed(2)} secondaryFormatter={v=>v.toFixed(2)} />
+      <BarChart title="Kecepatan Siklus & Waktu" subtitle="Start → Recovery · kecepatan rata-rata + durasi siklus" unit={`${speedUnit} · s`} values={attempts.map(a=>a.fullCycleAverageSpeed||0)} secondaryValues={attempts.map(a=>a.fullCycleDuration||0)} labels={attempts.map(a=>`P#${a.attemptNumber}`)} barColor="#0F766E" secondaryColor="#7C3AED" secondaryUnit="s" valueFormatter={v=>v.toFixed(2)} secondaryFormatter={v=>v.toFixed(2)} />
+      <ComboChart />
+      <BarChart title="Simpangan Titik Impact" subtitle="Jarak titik impact aktual terhadap pusat target" unit="cm" values={attempts.map(a=>a.distanceToTargetCm||0)} secondaryValues={[]} labels={attempts.map(a=>`P#${a.attemptNumber}`)} barColor="#F43F5E" secondaryColor="#F43F5E" secondaryUnit="" showSecondary={false} valueFormatter={v=>v.toFixed(1)} />
     </div>
-  );
+    <div className="result-time-note">Waktu ditampilkan sebagai informasi durasi pada tiap percobaan. Untuk pembacaan visual, durasi yang lebih singkat diposisikan lebih tinggi (lebih cepat = lebih baik).</div>
+  </section>;
 };
 
 export const SessionResultPage: React.FC = () => {
@@ -326,7 +254,7 @@ export const SessionResultPage: React.FC = () => {
   return (
     <div id="analysis-report" className="space-y-5 pb-24 md:pb-8">
       {/* 1. Header Hero Maroon UPI */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#700000] via-[#800000] to-[#991B1B] rounded-2xl p-5 text-white shadow-md">
+      <div className="result-page-hero relative overflow-hidden bg-gradient-to-r from-[#700000] via-[#800000] to-[#991B1B] rounded-2xl p-5 text-white shadow-md">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
@@ -353,7 +281,7 @@ export const SessionResultPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="result-hero-actions flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -379,67 +307,24 @@ export const SessionResultPage: React.FC = () => {
       {/* 2. Panel Validasi Sistem */}
       <ValidationPanel qualityReport={qualityReport} />
 
-      {/* 3. Kartu KPI Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 border-l-4 border-l-emerald-600 shadow-sm">
-          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">
-            Akurasi (Hit Rate)
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h3 className="text-2xl font-black font-mono text-emerald-800">
-              {summary?.accuracyPercentage !== null && summary?.accuracyPercentage !== undefined
-                ? `${summary.accuracyPercentage.toFixed(1)}%`
-                : '--'}
-            </h3>
-            <span className="text-xs font-bold text-emerald-700">
-              {summary ? `${summary.hitsCount}/${summary.validAttempts} HIT` : ''}
-            </span>
-          </div>
-          <p className="text-[11px] text-dark-secondary mt-1">
-            {summary?.hitsCount || 0} tepat sasaran dari {summary?.validAttempts || 0} percobaan
-          </p>
-        </Card>
-
+      {/* 3. Ringkasan 3 Parameter Kecepatan */}
+      <div className="result-kpi-grid grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="p-4 border-l-4 border-l-[#800000] shadow-sm">
-          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">
-            Peak Speed Sesi
-          </span>
-          <div className="mt-1">
-            <h3 className="text-2xl font-black font-mono text-[#800000]">
-              {summary?.sessionPeakSpeed !== null && summary?.sessionPeakSpeed !== undefined
-                ? `${summary.sessionPeakSpeed.toFixed(2)} ${summary.speedUnit}`
-                : '--'}
-            </h3>
-          </div>
-          <p className="text-[11px] text-dark-secondary mt-1">Kecepatan tertinggi tercapai</p>
+          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">Kecepatan Puncak</span>
+          <h3 className="text-2xl font-black font-mono text-[#800000] mt-1">{summary?.sessionPeakSpeed != null ? `${summary.sessionPeakSpeed.toFixed(2)} ${summary.speedUnit}` : '--'}</h3>
+          <p className="text-[10px] text-dark-secondary mt-1">Maksimum yang tercatat selama gerakan</p>
         </Card>
 
-        <Card className="p-4 border-l-4 border-l-[#FACC15] shadow-sm">
-          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">
-            Avg Speed Sesi
-          </span>
-          <div className="mt-1">
-            <h3 className="text-2xl font-black font-mono text-dark">
-              {summary?.sessionAverageSpeed !== null && summary?.sessionAverageSpeed !== undefined
-                ? `${summary.sessionAverageSpeed.toFixed(2)} ${summary.speedUnit}`
-                : '--'}
-            </h3>
-          </div>
-          <p className="text-[11px] text-dark-secondary mt-1">Fase ekstensi tungkai</p>
+        <Card className="p-4 border-l-4 border-l-sky-500 shadow-sm">
+          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">Kecepatan Rata-rata Fase Tendangan</span>
+          <h3 className="text-2xl font-black font-mono text-dark mt-1">{summary?.sessionAverageSpeed != null ? `${summary.sessionAverageSpeed.toFixed(2)} ${summary.speedUnit}` : '--'}</h3>
+          <p className="text-[10px] text-dark-secondary mt-1"><span className="font-mono font-semibold text-dark">{summary?.sessionAverageDuration != null ? `${summary.sessionAverageDuration.toFixed(2)} s` : '--'}</span> · waktu Start → Impact</p>
         </Card>
 
-        <Card className="p-4 border-l-4 border-l-slate-400 shadow-sm">
-          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">
-            Durasi Rata-Rata
-          </span>
-          <div className="mt-1">
-            <h3 className="text-2xl font-black font-mono text-dark">
-              {summary?.sessionAverageDuration !== null && summary?.sessionAverageDuration !== undefined
-                ? `${summary.sessionAverageDuration.toFixed(2)} s`
-                : '--'}
-            </h3>
-          </div>
-          <p className="text-[11px] text-dark-secondary mt-1">Start ke Impact</p>
+        <Card className="p-4 border-l-4 border-l-teal-600 shadow-sm">
+          <span className="text-[11px] font-semibold text-dark-secondary uppercase tracking-wider block">Kecepatan Rata-rata Siklus Penuh</span>
+          <h3 className="text-2xl font-black font-mono text-teal-800 mt-1">{summary?.sessionFullCycleAverageSpeed != null ? `${summary.sessionFullCycleAverageSpeed.toFixed(2)} ${summary.speedUnit}` : '--'}</h3>
+          <p className="text-[10px] text-dark-secondary mt-1"><span className="font-mono font-semibold text-dark">{summary?.attempts.filter(a => a.fullCycleDuration != null).length ? `${(summary.attempts.filter(a => a.fullCycleDuration != null).reduce((sum,a) => sum + (a.fullCycleDuration || 0), 0) / summary.attempts.filter(a => a.fullCycleDuration != null).length).toFixed(2)} s` : '--'}</span> · durasi Start → Recovery</p>
         </Card>
       </div>
 
@@ -448,11 +333,13 @@ export const SessionResultPage: React.FC = () => {
         title="Rekapitulasi 5 Percobaan Tendangan Depan"
         subtitle="Perbandingan Parameter Kecepatan dan Akurasi"
       >
+        <div className="result-table-mobile-scroll">
         <Table
           headers={[
             'PERCOBAAN',
-            'DURASI',
-            'KECEPATAN TENDANGAN',
+            'FASE START–IMPACT',
+            'SIKLUS PENUH',
+            'PUNCAK',
             'DEVIASI TARGET',
             'STATUS',
             'METODE',
@@ -469,12 +356,9 @@ export const SessionResultPage: React.FC = () => {
                 <td className="px-4 py-3 font-bold text-dark">
                   Percobaan #{att.attemptNumber}
                 </td>
-                <td className="px-4 py-3 font-mono text-dark">
-                  {att.kickDuration ? `${att.kickDuration.toFixed(2)} s` : '-'}
-                </td>
-                <td className="px-4 py-3 font-mono text-dark">
-                  {att.averageSpeed !== null ? `${att.averageSpeed.toFixed(2)} ${att.speedUnit}` : 'Kalibrasi diperlukan'}
-                </td>
+                <td className="px-4 py-3 font-mono text-dark">{att.averageSpeed !== null ? <><div>{att.averageSpeed.toFixed(2)} {att.speedUnit}</div><div className="text-[9px] text-dark-secondary font-sans mt-0.5">{att.kickDuration != null ? `${att.kickDuration.toFixed(2)} s` : '--'} · waktu fase</div></> : '-'}</td>
+                <td className="px-4 py-3 font-mono text-dark">{att.fullCycleAverageSpeed !== null ? <><div>{att.fullCycleAverageSpeed.toFixed(2)} {att.speedUnit}</div><div className="text-[9px] text-dark-secondary font-sans mt-0.5">{att.fullCycleDuration != null ? `${att.fullCycleDuration.toFixed(2)} s` : '--'} · durasi siklus</div></> : '-'}</td>
+                <td className="px-4 py-3 font-mono font-bold text-[#800000]">{att.peakSpeed !== null ? `${att.peakSpeed.toFixed(2)} ${att.speedUnit}` : '-'}</td>
                 <td className="px-4 py-3 font-mono text-dark">
                   {att.distanceToTargetCm !== null ? `${att.distanceToTargetCm.toFixed(1)} cm` : '-'}
                 </td>
@@ -517,18 +401,16 @@ export const SessionResultPage: React.FC = () => {
             );
           })}
         </Table>
+        </div>
       </Card>
 
-      {/* 5. Grafik Komparasi Bersih Sejajar (Card ganda sudah dilepas) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-stretch">
-        {summary && (
-          <ModernSpeedComparisonChart
-            attempts={summary.attempts}
-            speedUnit={summary.speedUnit}
-          />
-        )}
-        <AccuracyDistanceChart results={accuracyResultsList} />
-      </div>
+      {/* 5. Grafik hasil utama — 4 grafik besar, tidak ada grafik durasi terpisah. */}
+      {summary && (
+        <ResultCharts
+          attempts={summary.attempts}
+          speedUnit={summary.speedUnit}
+        />
+      )}
     </div>
   );
 };
