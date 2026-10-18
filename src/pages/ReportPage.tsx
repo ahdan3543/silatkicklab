@@ -21,51 +21,50 @@ export const ReportPage: React.FC = () => {
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-8 font-sans text-dark print:p-0 print:m-0">
-      {/* Header Bar Aksi */}
-      <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 md:p-0 rounded-xl md:rounded-none border md:border-none border-dark-border">
-        <div>
-          <h2 className="text-base md:text-lg font-bold text-dark">Laporan & Rekomendasi Klinis</h2>
-          <p className="text-[11px] md:text-xs text-dark-secondary">
-            Cetak rekapitulasi data ilmiah untuk arsip tim medis dan pelatih
-          </p>
+      {/* Header halaman laporan — disamakan dengan Data Atlet dan Analisis */}
+      <section className="print:hidden relative overflow-hidden rounded-[24px] border border-red-100 bg-gradient-to-r from-white via-white to-rose-50 min-h-[220px] sm:min-h-[255px] shadow-[0_8px_26px_rgba(15,23,42,.045)]">
+        <div className="page-hero-content">
+          <div className="flex items-center gap-2 text-[10px] font-bold">
+            <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 tracking-[.16em] text-[#a40000]">SILAT MOTION</span>
+            <span className="text-slate-400">›</span>
+            <span className="text-slate-500">Laporan</span>
+          </div>
+          <h1 className="mt-5 text-[34px] sm:text-[43px] font-extrabold leading-none tracking-[-.045em] text-slate-900">Laporan <span className="text-[#a40000]">Hasil Analisis</span></h1>
+          <p className="mt-3 max-w-[500px] text-[13px] sm:text-[15px] leading-relaxed text-slate-600">Rekapitulasi hasil pengukuran tendangan depan untuk dokumentasi penelitian.</p>
+          <div className="mt-5 flex items-center gap-2">
+            <Button className="!rounded-full !bg-[#a40000] !px-6 !py-3 !font-bold !text-white shadow-lg shadow-red-900/15 hover:!bg-[#800000]" icon={<Printer size={16} />} onClick={handlePrint}>Cetak</Button>
+            <Button className="!rounded-full !bg-white !text-[#a40000] !border !border-red-200 !px-5 !py-3 !font-bold hover:!bg-red-50" icon={<Download size={16} />} onClick={handlePrint}>PDF</Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" icon={<Printer size={15} />} onClick={handlePrint}>
-            Cetak
-          </Button>
-          <Button variant="primary" size="sm" icon={<Download size={15} />} onClick={handlePrint}>
-            Ekspor PDF
-          </Button>
-        </div>
-      </div>
+      </section>
 
       {/* Lembar Dokumen Rekomendasi Klinis */}
-      <div className="bg-white border border-dark-border rounded-xl shadow-xs p-4 sm:p-6 space-y-4 print:border-none print:shadow-none print:p-0">
+      <div className="bg-white border border-[#800000]/10 rounded-2xl shadow-xs p-4 sm:p-6 space-y-4 print:border-none print:shadow-none print:p-0">
         {/* Kop Surat Resmi */}
-        <div className="border-b-2 border-dark pb-3 flex items-center justify-between gap-3 sm:gap-4">
+        <div className="border-b-2 border-[#800000] pb-3 flex items-center justify-between gap-3 sm:gap-4">
           <div className="shrink-0">
             <UpiLogo className="w-12 h-12 sm:w-14 sm:h-14" />
           </div>
           <div className="flex-1 text-center">
-            <h2 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-dark-secondary">
+            <h2 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Universitas Pendidikan Indonesia
             </h2>
-            <h1 className="text-lg sm:text-xl font-black uppercase tracking-wider text-dark leading-tight">
+            <h1 className="text-lg sm:text-xl font-black uppercase tracking-wider text-[#800000] leading-tight">
               SILAT-KICK
             </h1>
-            <p className="text-[9.5px] sm:text-[10.5px] font-semibold text-dark-secondary">
+            <p className="text-[9.5px] sm:text-[10.5px] font-semibold text-slate-500">
               Divisi Monitoring & Evaluasi Pemulihan Atlet Pasca Cedera
             </p>
           </div>
-          <div className="shrink-0 text-right font-mono text-[9px] text-dark-secondary">
-            <span className="block font-bold text-dark text-xs">ARSIP KLINIS</span>
+          <div className="shrink-0 text-right font-mono text-[9px] text-slate-500">
+            <span className="block font-bold text-[#800000] text-xs">ARSIP KLINIS</span>
             <span>{new Date().toLocaleDateString('id-ID')}</span>
           </div>
         </div>
 
         {/* Isi Rekomendasi */}
         <Card title="Ringkasan Evaluasi Kesiapan Atlet">
-          <div className="p-3.5 sm:p-4 bg-slate-50 border border-dark-border rounded-lg space-y-2.5 text-xs leading-relaxed text-dark">
+          <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200/80 rounded-lg space-y-2.5 text-xs leading-relaxed text-slate-900">
             <p>
               Berdasarkan uji coba 5 tendangan depan pada sesi <b>{mockSessions[0].sessionCode}</b>, atlet{' '}
               <b>{mockSessions[0].athleteName}</b> menunjukkan kestabilan biomekanika dengan nilai akurasi rata-rata{' '}

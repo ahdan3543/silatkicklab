@@ -9,25 +9,121 @@
     --color-primary-light: 153 27 27;
     --color-accent: 217 119 6;
   }
-  html { background:#f5f6f8; }
+  html { background:#f4f6f8; }
   body {
     @apply text-slate-900 antialiased;
-    margin:0; padding:0;
+    margin:0;
+    padding:0;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background:
-      radial-gradient(circle at 75% -10%, rgba(128,0,0,.055), transparent 32rem),
-      #f5f6f8;
+      radial-gradient(circle at 82% -10%, rgba(128,0,0,.055), transparent 32rem),
+      #f4f6f8;
   }
   button,input,select,textarea { font:inherit; }
   ::selection { background:rgba(128,0,0,.15); }
 }
 
 @layer components {
-  .analysis-surface { @apply rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_10px_30px_rgba(15,23,42,.045)]; }
+  .analysis-surface { @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,.04)]; }
   .eyebrow { @apply text-[10px] font-bold uppercase tracking-[.18em] text-[#800000]; }
-  .page-title { @apply text-[25px] sm:text-[28px] font-extrabold tracking-[-.035em] text-slate-950; }
+  .page-title { @apply text-[24px] sm:text-[29px] font-extrabold tracking-[-.035em] text-[#4d0000]; }
   .muted { @apply text-sm leading-relaxed text-slate-500; }
   .field-label { @apply text-[11px] font-semibold uppercase tracking-wider text-slate-500; }
+
+  /* Shared page header: one continuous white -> soft red gradient with the
+     silat artwork blended into the right side. Used by Data Atlet, Analisis,
+     and Laporan so all three pages stay visually consistent. */
+  .page-hero {
+    @apply relative overflow-hidden rounded-[24px] min-h-[220px] sm:min-h-[255px];
+    border:1px solid rgba(164,0,0,.10);
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.985) 0%, rgba(255,255,255,.95) 32%, rgba(255,246,247,.84) 53%, rgba(252,226,230,.62) 100%),
+      url('/assets/hero-silat.png') right center / auto 100% no-repeat,
+      linear-gradient(135deg, #ffffff 0%, #fff5f5 55%, #fbe1e5 100%);
+    box-shadow:0 12px 30px rgba(15,23,42,.06);
+  }
+  .page-hero::after {
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.08) 45%, rgba(255,255,255,0) 72%);
+    pointer-events:none;
+  }
+  .page-hero-content { @apply relative z-10 max-w-[650px] p-7 sm:p-9 lg:p-10; }
+
+  .silat-hero {
+    position:relative;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.985) 0%, rgba(255,255,255,.94) 34%, rgba(255,242,244,.74) 57%, rgba(252,226,230,.58) 100%),
+      url('/assets/hero-silat.png') right center / auto 100% no-repeat,
+      linear-gradient(135deg, #ffffff 0%, #fff5f5 55%, #fbe1e5 100%);
+    border:1px solid rgba(164,0,0,.10);
+    box-shadow:0 12px 30px rgba(15,23,42,.07);
+    min-height:220px;
+  }
+  .silat-hero::after {
+    content:"";
+    position:absolute;
+    right:-30px;
+    bottom:-65px;
+    width:300px;
+    height:220px;
+    background:radial-gradient(circle, rgba(164,0,0,.07), transparent 68%);
+    pointer-events:none;
+  }
+  .silat-hero .hero-content { position:relative; z-index:2; }
+
+  .stat-card {
+    @apply relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-[0_6px_20px_rgba(15,23,42,.045)];
+  }
+  .stat-card::after {
+    content:"";
+    position:absolute;
+    right:-20px;
+    bottom:-28px;
+    width:150px;
+    height:80px;
+    border-radius:50%;
+    background:rgba(128,0,0,.035);
+    transform:rotate(-8deg);
+  }
+
+  .dashboard-hero {
+    position:relative;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.985) 0%, rgba(255,255,255,.93) 34%, rgba(255,242,244,.72) 57%, rgba(252,226,230,.50) 100%),
+      url('/assets/hero-silat.png') right center / auto 100% no-repeat,
+      linear-gradient(135deg,#ffffff 0%,#fff7f7 52%,#f8dfe3 100%);
+    border:1px solid rgba(164,0,0,.10);
+    box-shadow:0 12px 30px rgba(15,23,42,.06);
+  }
+  .dashboard-hero::after {
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg,rgba(255,255,255,.30) 0%,rgba(255,255,255,.08) 45%,rgba(255,255,255,0) 72%);
+    pointer-events:none;
+  }
+  .dashboard-hero .hero-image { display:none; }
+
+  .dashboard-stat {
+    @apply rounded-2xl border border-slate-200/70 bg-white p-6 flex items-center gap-4 shadow-[0_6px_22px_rgba(15,23,42,.045)];
+    min-height:124px;
+  }
+  .dashboard-stat .stat-icon { @apply w-14 h-14 rounded-2xl flex items-center justify-center shrink-0; }
+  .dashboard-stat p { @apply text-[10px] font-semibold text-slate-400; }
+  .dashboard-stat strong { @apply block mt-1 text-[28px] leading-none font-extrabold tracking-tight text-slate-900; }
+  .dashboard-stat small { @apply block mt-1 text-[9px] text-slate-400; }
+  .dashboard-section { @apply rounded-2xl border border-slate-200/70 bg-white p-6 sm:p-7 shadow-[0_6px_22px_rgba(15,23,42,.035)]; }
+  .dashboard-section h2 { @apply text-[19px] font-extrabold tracking-tight text-slate-900; }
+  .dashboard-section > div > div > p { @apply text-[10px] text-slate-400 mt-0.5; }
+  .quick-card { @apply min-h-[124px] rounded-2xl border border-slate-100 p-5 flex items-center gap-4 hover:bg-white hover:border-red-100 hover:shadow-[0_8px_20px_rgba(164,0,0,.06)] transition-all; }
+  .quick-icon { @apply w-12 h-12 rounded-2xl flex items-center justify-center shrink-0; }
+  .quick-card b { @apply block text-[13px] font-extrabold text-slate-800; }
+  .quick-card small { @apply block mt-1.5 text-[10px] leading-relaxed text-slate-400; }
+  .athlete-row { @apply rounded-2xl border border-slate-100 p-4 flex items-center justify-between gap-4 hover:border-red-100 hover:shadow-[0_6px_18px_rgba(15,23,42,.04)] transition-all; min-height:94px; }
+  .promo-card { @apply relative overflow-hidden rounded-2xl min-h-[270px] p-6 bg-gradient-to-br from-red-50 to-rose-100 border border-red-100; }
+  .promo-card img { position:absolute; right:-80px; bottom:-10px; width:260px; opacity:.25; mix-blend-mode:multiply; }
 }
 
 ::-webkit-scrollbar { width:6px; height:6px; }
@@ -35,9 +131,14 @@
 ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:9999px; }
 ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
 
-@media (max-width: 767px) {
-  body { background:#f5f6f8; }
+@media (max-width:767px) {
+  body { background:#f7f7f8; }
   .mobile-safe-bottom { padding-bottom:5.5rem; }
+  .page-hero { min-height:290px; background-size:auto 100%, auto 100%, auto; }
+  .page-hero::after { background:linear-gradient(90deg,rgba(255,255,255,.55),rgba(255,255,255,.10) 65%,rgba(255,255,255,0)); }
+  .dashboard-hero { min-height:290px; }
+  .dashboard-hero .hero-image { opacity:.38; right:-30%; background-size:auto 78%; background-position:right bottom; }
+  .silat-hero::after { width:78%; right:-18%; bottom:-55%; opacity:.075; }
 }
 
 @media print {

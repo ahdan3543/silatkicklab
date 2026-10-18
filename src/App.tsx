@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { AthletePage } from './pages/AthletePage';
+import { DashboardPage } from './pages/DashboardPage';
 import { AnalysisPage } from './pages/AnalysisPage';
 import { SessionDetailPage } from './pages/SessionDetailPage';
 import { VideoAnalysisView } from './features/analysis/VideoAnalysisView';
@@ -9,12 +10,14 @@ import { ResultPage } from './pages/ResultPage';
 import { SessionResultPage } from './pages/SessionResultPage';
 import { AnalysisReportPage } from './pages/AnalysisReportPage';
 import { ReportPage } from './pages/ReportPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export const App: React.FC = () => (
   <BrowserRouter>
     <Routes>
       <Route path="/" element={<AppLayout />}>
-        <Route index element={<Navigate to="/atlet" replace />} />
+        <Route index element={<Navigate to="/beranda" replace />} />
+        <Route path="beranda" element={<DashboardPage />} />
         <Route path="atlet" element={<AthletePage />} />
         <Route path="analisis" element={<AnalysisPage />} />
         <Route path="analisis/:id" element={<SessionDetailPage />} />
@@ -24,7 +27,8 @@ export const App: React.FC = () => (
         <Route path="analisis/:sessionId/hasil" element={<SessionResultPage />} />
         <Route path="analisis/:sessionId/laporan" element={<AnalysisReportPage />} />
         <Route path="laporan" element={<ReportPage />} />
-        <Route path="*" element={<Navigate to="/atlet" replace />} />
+        <Route path="pengaturan" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/beranda" replace />} />
       </Route>
     </Routes>
   </BrowserRouter>

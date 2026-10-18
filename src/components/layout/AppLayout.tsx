@@ -1,7 +1,6 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { Navbar } from './Navbar';
 
 export const AppLayout: React.FC = () => {
   return (
@@ -11,14 +10,10 @@ export const AppLayout: React.FC = () => {
 
       {/* Kontainer Halaman Utama */}
       <div className="flex-1 flex flex-col min-w-0 w-full">
-        {/* Navbar desktop hanya ditampilkan di layar tablet/PC (md ke atas) */}
-        <div className="hidden md:block">
-          <Navbar />
-        </div>
-
+        {/* Header atas dihilangkan agar area dashboard lebih luas dan fokus ke konten. */}
         {/* Padding responsif: di HP p-3 sm:p-4, di desktop p-4 md:p-6 w-full penuh tanpa max-w-7xl */}
-        <main className="flex-1 p-3 sm:p-4 lg:p-6 w-full overflow-y-auto">
-          <div className="w-full">
+        <main className="flex-1 p-3 sm:p-5 lg:p-6 w-full overflow-y-auto">
+          <div className="w-full min-w-0">
             <Outlet />
           </div>
         </main>
