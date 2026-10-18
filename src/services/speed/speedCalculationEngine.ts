@@ -333,9 +333,14 @@ export const speedCalculationEngine = {
 
     // Peak Speed & Average Speed
     let peakSpeedPixelsPerSecond = 0;
+    let peakSpeedFrame: number | null = null;
+    let peakSpeedTimestamp: number | null = null;
     for (const p of activeRange) {
-      if (p.smoothedVelocityPxS > peakSpeedPixelsPerSecond) {
-        peakSpeedPixelsPerSecond = p.smoothedVelocityPxS;
+      const velocity = Number.isFinite(p.smoothedVelocityPxS) ? p.smoothedVelocityPxS : 0;
+      if (velocity > peakSpeedPixelsPerSecond) {
+        peakSpeedPixelsPerSecond = velocity;
+        peakSpeedFrame = p.frameNumber;
+        peakSpeedTimestamp = p.timestamp;
       }
     }
     const averageSpeedPixelsPerSecond = footDisplacementPixels / kickDuration;
@@ -373,6 +378,8 @@ export const speedCalculationEngine = {
       metersPerPixel: mPerPx,
       footDisplacementMeters,
       peakSpeedMetersPerSecond,
+      peakSpeedFrame,
+      peakSpeedTimestamp,
       averageSpeedMetersPerSecond,
       detectionMethod: method,
       trajectory,
