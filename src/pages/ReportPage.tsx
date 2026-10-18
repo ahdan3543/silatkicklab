@@ -143,7 +143,7 @@ export const ReportPage: React.FC = () => {
       <Card className="p-5 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 pb-5 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-extrabold text-slate-900">Daftar Laporan Komparasi</h2>
+            <h2 className="section-title-mark text-lg font-extrabold text-slate-900">Daftar Laporan Komparasi</h2>
             <p className="mt-1 text-xs text-slate-500">Laporan dibuat berdasarkan hasil komparasi 5 percobaan pada setiap sesi.</p>
           </div>
           <span className="text-[10px] text-slate-400">{sessions.length} sesi</span>

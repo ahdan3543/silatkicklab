@@ -51,6 +51,34 @@
   }
   .page-hero-content { @apply relative z-10 max-w-[650px] p-7 sm:p-9 lg:p-10; }
 
+  /* Small red accent used consistently on page/section headers. */
+  .page-hero::before,
+  .dashboard-hero::before {
+    content:"";
+    position:absolute;
+    left:28px;
+    top:30px;
+    width:42px;
+    height:5px;
+    border-radius:999px;
+    background:#c00000;
+    z-index:2;
+  }
+  .section-title-mark {
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section-title-mark::before {
+    content:"";
+    display:block;
+    width:5px;
+    height:28px;
+    flex:0 0 auto;
+    border-radius:999px;
+    background:#c00000;
+  }
+
   .silat-hero {
     position:relative;
     background:
@@ -347,12 +375,19 @@
     min-height:210px !important;
     border-radius:20px !important;
   }
+  .page-hero::before,
+  .dashboard-hero::before {
+    left:22px;
+    top:20px;
+    width:38px;
+    height:4px;
+  }
   .page-hero {
     background-size:auto 100%, auto 100%, auto !important;
   }
   .page-hero-content {
-    padding:1.25rem 1.05rem 1.35rem !important;
-    max-width:72% !important;
+    padding:1.55rem 1.05rem 1.35rem !important;
+    max-width:76% !important;
   }
   .page-hero h1, .dashboard-hero h1 {
     font-size:1.82rem !important;
@@ -493,10 +528,38 @@
   }
   .mobile-stack > * { width:100% !important; }
 
+  /* Data Atlet filter controls: search stays visible; dropdowns can be toggled. */
+  .mobile-filter-toggle { display:inline-flex; }
+  .athlete-filters {
+    display:flex;
+  }
+  .athlete-filters.is-open { display:flex; }
+
+  /* Data Atlet: compact 2-column statistics like the reference mobile UI. */
+  .mobile-athlete-stats {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+  .mobile-athlete-stats > * { min-width:0; }
+  .mobile-athlete-stats .stat-value {
+    font-size:1.35rem !important;
+  }
+
+  .athlete-filters {
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:.55rem !important;
+  }
+  .athlete-filters > .relative { grid-column:1 / -1; width:100% !important; }
+  .athlete-filters select,
+  .athlete-filters > button { width:100% !important; min-width:0 !important; }
+
   /* Data Atlet */
   .report-toolbar, .result-toolbar { flex-wrap:wrap !important; }
   .report-toolbar > *, .result-toolbar > * { min-width:0 !important; }
   .report-metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+
+  .section-title-mark { gap:8px !important; }
+  .section-title-mark::before { width:4px; height:22px; }
 
   /* Card daftar laporan */
   .report-list-card {

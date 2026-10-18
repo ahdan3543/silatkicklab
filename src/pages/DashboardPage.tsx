@@ -38,7 +38,7 @@ export const DashboardPage: React.FC = () => {
       <div className="space-y-5">
         <div className="space-y-5">
           <section className="dashboard-section">
-            <div className="mb-5"><h2>Menu Utama</h2><p>Pilih alur kerja penelitian yang ingin dilanjutkan.</p></div>
+            <div className="mb-5"><h2 className="section-title-mark">Menu Utama</h2><p>Pilih alur kerja penelitian yang ingin dilanjutkan.</p></div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Quick title="Data Atlet" desc="Kelola data subjek penelitian" icon={<Users size={25}/>} tone="pink" onClick={() => navigate('/atlet')} />
               <Quick title="Analisis" desc="Proses video dan pengukuran" icon={<Activity size={25}/>} tone="red" onClick={() => navigate('/analisis')} />
@@ -48,7 +48,7 @@ export const DashboardPage: React.FC = () => {
           </section>
 
           <section className="dashboard-section">
-            <div className="flex items-center justify-between mb-5"><div><h2>Subjek Penelitian</h2><p>Kelola atlet dan masuk ke sesi analisis.</p></div><button onClick={() => navigate('/atlet')} className="text-[10px] font-bold text-[#a40000]">Lihat Semua →</button></div>
+            <div className="flex items-center justify-between mb-5"><div><h2 className="section-title-mark">Subjek Penelitian</h2><p>Kelola atlet dan masuk ke sesi analisis.</p></div><button onClick={() => navigate('/atlet')} className="text-[10px] font-bold text-[#a40000]">Lihat Semua →</button></div>
             <div className="grid gap-3 md:grid-cols-2">
               {athletes.slice(0,4).map(a => <button key={a.id} onClick={() => navigate('/atlet')} className="athlete-row text-left"><div className="flex items-center gap-3 min-w-0"><div className="w-11 h-11 rounded-2xl bg-red-50 text-[#a40000] flex items-center justify-center font-extrabold text-xs shrink-0">{a.name.slice(0,2).toUpperCase()}</div><div className="min-w-0"><p className="font-extrabold text-[13px] truncate">{a.name}</p><p className="text-[10px] text-slate-400 mt-1">{a.status || 'Aktif'} · {a.category || 'Belum ada kelas'}</p></div></div><ArrowRight size={15} className="text-slate-300"/></button>)}
             </div>
@@ -60,7 +60,7 @@ export const DashboardPage: React.FC = () => {
                 <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-[9px] font-black tracking-[.14em] text-[#a40000]">
                   <Activity size={12}/> CARA KERJA SISTEM
                 </div>
-                <h2>Bagaimana Sistem Menghasilkan Hasil?</h2>
+                <h2 className="section-title-mark">Bagaimana Sistem Menghasilkan Hasil?</h2>
                 <p>Setiap angka berasal dari proses pengukuran yang jelas—mulai dari video, waktu gerak, jarak, hingga titik sasaran.</p>
               </div>
               <div className="system-flow-badge"><span>VIDEO</span><ArrowRight size={13}/><span>DATA</span><ArrowRight size={13}/><span>HASIL</span></div>

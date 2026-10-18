@@ -30,13 +30,13 @@ export const AnalysisPage: React.FC = () => {
 
   <section className="dashboard-section flex items-center gap-4">
    <div className="w-11 h-11 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0"><ClipboardCheck size={22}/></div>
-   <div className="min-w-0"><h2 className="!text-[15px]">Protokol pengukuran</h2><p>Kalibrasi marker → frame awal → frame kontak → waktu → jarak → kecepatan. Setiap atlet dianalisis sebanyak 5 percobaan.</p></div>
+   <div className="min-w-0"><h2 className="section-title-mark !text-[15px]">Protokol pengukuran</h2><p>Kalibrasi marker → frame awal → frame kontak → waktu → jarak → kecepatan. Setiap atlet dianalisis sebanyak 5 percobaan.</p></div>
    <ArrowRight className="ml-auto text-violet-500 shrink-0" size={20}/>
   </section>
 
   <section className="dashboard-section !p-0 overflow-hidden">
    <div className="px-5 sm:px-7 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-    <div><h2>Sesi analisis</h2><p>Pilih sesi untuk melanjutkan pengukuran.</p></div>
+    <div><h2 className="section-title-mark">Sesi analisis</h2><p>Pilih sesi untuk melanjutkan pengukuran.</p></div>
     <div className="flex items-center gap-2 min-w-0"><div className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[10px] text-slate-400 min-w-0"><span>⌕</span><span className="truncate">Cari sesi, atlet, atau tanggal...</span></div><span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">{sessions.length} sesi</span></div>
    </div>
    {loading?<p className="py-12 text-center text-xs text-slate-500">Memuat sesi...</p>:sessions.length===0?<div className="py-12 text-center"><Activity className="mx-auto text-slate-300" size={30}/><p className="mt-3 text-xs font-bold text-slate-700">Belum ada sesi analisis</p><p className="text-[10px] text-slate-400 mt-1">Mulai dari halaman Data Atlet.</p><button onClick={()=>navigate('/atlet')} className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#800000]">Kembali ke atlet <ArrowRight size={13}/></button></div>:<div className="p-4 sm:p-5 grid grid-cols-1 xl:grid-cols-2 gap-4">
