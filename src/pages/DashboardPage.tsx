@@ -42,8 +42,8 @@ export const DashboardPage: React.FC = () => {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Quick title="Data Atlet" desc="Kelola data subjek penelitian" icon={<Users size={25}/>} tone="pink" onClick={() => navigate('/atlet')} />
               <Quick title="Analisis" desc="Proses video dan pengukuran" icon={<Activity size={25}/>} tone="red" onClick={() => navigate('/analisis')} />
-              <Quick title="Laporan" desc="Lihat dan cetak hasil analisis" icon={<FileText size={25}/>} tone="green" onClick={() => navigate('/laporan')} />
-              <Quick title="Pengaturan" desc="Atur sistem dan preferensi" icon={<Settings2 size={25}/>} tone="purple" onClick={() => navigate('/laporan')} />
+              <Quick title="Laporan" desc="Lihat dan cetak hasil analisis" icon={<FileText size={25}/>} tone="green" onClick={() => navigate('/pengaturan')} />
+              <Quick title="Pengaturan" desc="Atur sistem dan preferensi" icon={<Settings2 size={25}/>} tone="purple" onClick={() => navigate('/pengaturan')} />
             </div>
           </section>
 

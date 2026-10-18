@@ -5,9 +5,9 @@ import { Button } from '../components/ui/Button';
 
 export const SettingsPage: React.FC = () => {
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-5 sm:space-y-6 max-w-3xl w-full mobile-safe-bottom">
       <div>
-        <h2 className="text-lg font-bold text-dark">Pengaturan Sistem & Parameter Biomekanika</h2>
+        <h2 className="section-title-mark text-lg font-bold text-dark">Pengaturan Sistem & Parameter Biomekanika</h2>
         <p className="text-xs text-dark-secondary">
           Kalibrasi threshold kecepatan dan toleransi akurasi tendangan silat
         </p>

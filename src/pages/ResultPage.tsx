@@ -120,7 +120,7 @@ export const ResultPage: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* 1. HEADER HERO SILAT MOTION */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#700000] via-[#800000] to-[#991B1B] rounded-2xl p-5 text-white shadow-md">
+      <div className="result-page-hero relative overflow-hidden bg-gradient-to-r from-[#700000] via-[#800000] to-[#991B1B] rounded-2xl p-5 text-white shadow-md">
         <div className="absolute -right-8 -top-12 w-44 h-44 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute right-36 -bottom-16 w-36 h-36 rounded-full bg-[#FACC15]/10 pointer-events-none" />
 
@@ -144,7 +144,7 @@ export const ResultPage: React.FC = () => {
 
           <button
             onClick={() => navigate('/analisis')}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-black text-xs rounded-xl shadow transition-all shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+            className="result-hero-actions inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-black text-xs rounded-xl shadow transition-all shrink-0 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Plus size={16} className="stroke-[3]" />
             <span>Mulai Analisis Baru</span>
